@@ -1,0 +1,24 @@
+{
+    "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE",
+    "os_system": "windows",
+    "assistant_name": "JARVIS",
+    "user_name": "YASH",
+    "ui_color": "#00d4ff",
+    "input_device": "",
+    "output_device": "",
+    "plugins_enabled": {
+        "pdf_tutor": true
+    },
+    "voice_name": "Charon",
+    "hud_style": "face",
+    "wake_word_enabled": false,
+    "github_username": "YashSurve2006",
+    "github_token": "",
+    "turn_tuning": {
+        "enabled": true,
+        "silence_ms": 320,
+        "prefix_ms": 60,
+        "end_sensitivity": "high",
+        "start_sensitivity": "high"
+    }
+}

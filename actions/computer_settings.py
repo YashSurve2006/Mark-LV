@@ -10,7 +10,7 @@ from pathlib import Path
 try:
     import pyautogui
     pyautogui.FAILSAFE = True
-    pyautogui.PAUSE    = 0.05
+    pyautogui.PAUSE    = 0.005
     _PYAUTOGUI = True
 except ImportError:
     _PYAUTOGUI = False
@@ -382,7 +382,7 @@ def find_on_page():
 def reload_page_n(n: int):
     for _ in range(max(1, n)):
         refresh_page()
-        time.sleep(0.8)
+        time.sleep(0.15)
 
 
 def scroll_up(amount: int = 500):    pyautogui.scroll(amount)
@@ -862,12 +862,50 @@ def computer_settings(
         except Exception as e:
             return f"Reload failed: {e}"
 
+    if action in ("scroll_to_page", "goto_page", "pdf_page", "pdf_goto_page", "jump_to_page"):
+        try:
+            from actions.computer_control import _chrome_pdf_goto_page
+            p_val = params.get("page", params.get("page_number", value or 1))
+            return _chrome_pdf_goto_page(page=p_val)
+        except Exception as e:
+            return f"Failed to navigate to page: {e}"
+
     if action == "scroll_up":
-        scroll_up(int(value or 500))
+        val_str = str(value or params.get("amount", "")).lower()
+        if "page" in val_str:
+            try:
+                from actions.computer_control import _chrome_pdf_goto_page
+                m = re.search(r"\d+", val_str)
+                num = int(m.group(0)) if m else 1
+                if "to page" in val_str or "page number" in val_str:
+                    return _chrome_pdf_goto_page(page=num)
+                return _chrome_pdf_goto_page(relative_pages=-num)
+            except Exception:
+                pass
+        try:
+            amt = int(re.search(r"\d+", str(value or params.get("amount", ""))).group(0)) if (value and re.search(r"\d+", str(value or params.get("amount", "")))) else 600
+        except Exception:
+            amt = 600
+        scroll_up(amt)
         return "Scrolled up."
 
     if action == "scroll_down":
-        scroll_down(int(value or 500))
+        val_str = str(value or params.get("amount", "")).lower()
+        if "page" in val_str:
+            try:
+                from actions.computer_control import _chrome_pdf_goto_page
+                m = re.search(r"\d+", val_str)
+                num = int(m.group(0)) if m else 1
+                if "to page" in val_str or "page number" in val_str:
+                    return _chrome_pdf_goto_page(page=num)
+                return _chrome_pdf_goto_page(relative_pages=num)
+            except Exception:
+                pass
+        try:
+            amt = int(re.search(r"\d+", str(value or params.get("amount", ""))).group(0)) if (value and re.search(r"\d+", str(value or params.get("amount", "")))) else 600
+        except Exception:
+            amt = 600
+        scroll_down(amt)
         return "Scrolled down."
 
     func = ACTION_MAP.get(action)
@@ -936,7 +974,7 @@ TOOL = {
                     "switch_window | show_desktop | task_manager | focus_search | "
                     "refresh_page | close_tab | new_tab | next_tab | prev_tab | "
                     "go_back | go_forward | zoom_in | zoom_out | zoom_reset | "
-                    "find_on_page | scroll_up | scroll_down | scroll_top | "
+                    "find_on_page | scroll_up | scroll_down | scroll_to_page | scroll_top | "
                     "scroll_bottom | page_up | page_down | copy | paste | cut | "
                     "undo | redo | select_all | save | enter | escape | press_key | "
                     "type_text | screenshot | lock_screen | open_settings | "

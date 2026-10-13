@@ -65,9 +65,17 @@ def _get_os() -> str:
     return _load_config().get("os_system", "windows").lower()
 
 
-_IMG_MAX_W = 1280
-_IMG_MAX_H = 720
-_JPEG_Q    = 82
+# Resolution and quality targets for AI vision.
+# 1920×1080 keeps text legible in dense UIs (taskbars, code editors, terminals)
+# without exceeding the model's effective token budget for image data.
+# LANCZOS is the highest-quality downsampling filter in Pillow — it minimises
+# ringing on sharp edges (fonts, borders, icons) far better than BILINEAR.
+# Quality 92 is the sweet-spot between file size and JPEG artefact visibility
+# around fine text; below ~88 the block noise on small characters misleads the
+# model's OCR path.
+_IMG_MAX_W = 1920
+_IMG_MAX_H = 1080
+_JPEG_Q    = 92
 
 
 def _compress(img_bytes: bytes, source_format: str = "PNG") -> tuple[bytes, str]:
@@ -76,9 +84,12 @@ def _compress(img_bytes: bytes, source_format: str = "PNG") -> tuple[bytes, str]
 
     try:
         img = PIL.Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        img.thumbnail((_IMG_MAX_W, _IMG_MAX_H), PIL.Image.BILINEAR)
+        img.thumbnail((_IMG_MAX_W, _IMG_MAX_H), PIL.Image.LANCZOS)
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=_JPEG_Q, optimize=False)
+        # optimize=True runs the Huffman pass — a few ms of CPU for a 10-15 %
+        # size reduction, which matters at 1920×1080 where unoptimised frames
+        # push 400 kB and the model's context has soft token limits on image data.
+        img.save(buf, format="JPEG", quality=_JPEG_Q, optimize=True)
         return buf.getvalue(), "image/jpeg"
     except Exception as e:
         print(f"[Vision] ⚠️  Image compress failed: {e}")
@@ -86,17 +97,48 @@ def _compress(img_bytes: bytes, source_format: str = "PNG") -> tuple[bytes, str]
 
 
 def _capture_screen() -> tuple[bytes, str]:
+    if _MSS:
+        try:
+            with mss.mss() as sct:
+                monitors = sct.monitors          # [0] = all combined, [1..n] = real screens
+                target   = monitors[1] if len(monitors) > 1 else monitors[0]
+                shot     = sct.grab(target)
 
-    if not _MSS:
-        raise RuntimeError("mss is not installed. Run: pip install mss")
+            if _PIL:
+                # Direct raw memory conversion — avoids 150ms+ intermediate PNG compression
+                img = PIL.Image.frombytes("RGB", shot.size, shot.rgb)
+                img.thumbnail((_IMG_MAX_W, _IMG_MAX_H), PIL.Image.BILINEAR)
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=_JPEG_Q)
+                return buf.getvalue(), "image/jpeg"
 
-    with mss.mss() as sct:
-        monitors = sct.monitors          # [0] = all combined, [1..n] = real screens
-        target   = monitors[1] if len(monitors) > 1 else monitors[0]
-        shot     = sct.grab(target)
-        png      = mss.tools.to_png(shot.rgb, shot.size)
+            png = mss.tools.to_png(shot.rgb, shot.size)
+            return _compress(png, "PNG")
+        except Exception as e:
+            print(f"[Vision] mss capture failed ({e}), falling back to PIL/pyautogui")
 
-    return _compress(png, "PNG")
+    # Fallback 1: PIL ImageGrab
+    if _PIL:
+        try:
+            from PIL import ImageGrab
+            img = ImageGrab.grab(all_screens=False).convert("RGB")
+            img.thumbnail((_IMG_MAX_W, _IMG_MAX_H), PIL.Image.BILINEAR)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=_JPEG_Q)
+            return buf.getvalue(), "image/jpeg"
+        except Exception as e:
+            print(f"[Vision] ImageGrab fallback failed: {e}")
+
+    # Fallback 2: PyAutoGUI
+    try:
+        import pyautogui
+        img = pyautogui.screenshot().convert("RGB")
+        img.thumbnail((_IMG_MAX_W, _IMG_MAX_H), PIL.Image.BILINEAR)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=_JPEG_Q)
+        return buf.getvalue(), "image/jpeg"
+    except Exception as e:
+        raise RuntimeError(f"All screen capture methods failed: {e}")
 
 
 def _cv2_backend() -> int:
@@ -174,7 +216,7 @@ def _capture_camera() -> tuple[bytes, str]:
     if _PIL:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = PIL.Image.fromarray(rgb)
-        img.thumbnail((_IMG_MAX_W, _IMG_MAX_H), PIL.Image.BILINEAR)
+        img.thumbnail((_IMG_MAX_W, _IMG_MAX_H), PIL.Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=_JPEG_Q)
         return buf.getvalue(), "image/jpeg"

@@ -18,7 +18,7 @@ MAX_BUILD_ATTEMPTS = 3
 # Model choice lives in core/gemini.py, and so does the timeout and the
 # fallback ladder. Writing a model name here is what left this file hanging
 # forever whenever that one alias was unwell.
-from core import gemini
+from core import coder_engine, gemini
 
 
 def _get_api_key() -> str:
@@ -115,7 +115,7 @@ def _image_to_base64(path: Path) -> str:
     return base64.b64encode(path.read_bytes()).decode("utf-8")
 
 
-_VALID_INTENTS = {"write", "edit", "explain", "run", "build", "screen_debug", "optimize"}
+_VALID_INTENTS = {"write", "edit", "explain", "run", "build", "screen_debug", "optimize", "open_ide", "test"}
 
 
 def _detect_intent(description: str, file_path: str, code: str) -> str:
@@ -127,6 +127,12 @@ def _detect_intent(description: str, file_path: str, code: str) -> str:
     """
     desc        = (description or "").strip()
     file_exists = bool(file_path) and Path(file_path).exists()
+
+    low = desc.lower()
+    if any(k in low for k in ("open in vs code", "open in vscode", "open in antigravity", "open ide", "open in code")):
+        return "open_ide"
+    if any(k in low for k in ("run tests", "run test", "unit test", "pytest")):
+        return "test"
 
     if desc:
         try:
@@ -147,7 +153,9 @@ def _detect_intent(description: str, file_path: str, code: str) -> str:
                 "  run          = execute an existing file\n"
                 "  build        = write code, run it, and iterate until it works\n"
                 "  screen_debug = analyze an error currently visible on the user's screen\n"
-                "  optimize     = refactor / clean up / speed up existing code\n\n"
+                "  optimize     = refactor / clean up / speed up existing code\n"
+                "  open_ide     = open file or project in VS Code or Antigravity IDE\n"
+                "  test         = run unit tests or verify test suite\n\n"
                 "Reply with ONLY the intent word, nothing else."
             )
             ans = _get_gemini().generate_content(prompt).text.strip().lower()
@@ -164,16 +172,14 @@ def _detect_intent(description: str, file_path: str, code: str) -> str:
         return "explain"
     return "write"
 
-def _write(description: str, language: str, output_path: str, player=None) -> tuple[str, Path]:
+def _write(description: str, language: str, output_path: str, player=None, model_pref: str = "auto") -> tuple[str, Path]:
     lang  = language or "python"
-    model = _get_gemini()
-
-    prompt = f"""You are an expert {lang} developer.
-Write clean, working, well-commented {lang} code for the description below.
+    prompt = f"""You are an expert {lang} developer writing clean, production-grade code.
+Write clean, working, robustly commented {lang} code for the description below.
 
 Rules:
 - Output ONLY the code. No explanation, no markdown, no backticks.
-- Add helpful inline comments.
+- Add helpful inline comments and type annotations where applicable.
 - Handle errors and edge cases properly.
 - Use modern best practices.
 
@@ -181,15 +187,20 @@ Description: {description}
 
 Code:"""
 
-    response = model.generate_content(prompt)
-    code     = _clean_code(response.text)
-    path     = _resolve_save_path(output_path, lang)
+    try:
+        raw = coder_engine.generate_code_text(prompt, tier="smart", model_preference=model_pref)
+        code = _clean_code(raw)
+    except Exception:
+        model = _get_gemini()
+        response = model.generate_content(prompt)
+        code = _clean_code(response.text)
+
+    path = _resolve_save_path(output_path, lang)
     _save_file(path, code)
     return code, path
 
 
-def _fix_code(code: str, error_output: str, description: str) -> str:
-    model  = _get_gemini()
+def _fix_code(code: str, error_output: str, description: str, model_pref: str = "auto") -> str:
     prompt = f"""You are an expert debugger.
 The code below failed with the following error. Fix it.
 Return ONLY the corrected code — no explanation, no markdown, no backticks.
@@ -204,8 +215,13 @@ Broken code:
 
 Fixed code:"""
 
-    response = model.generate_content(prompt)
-    return _clean_code(response.text)
+    try:
+        raw = coder_engine.generate_code_text(prompt, tier="smart", model_preference=model_pref)
+        return _clean_code(raw)
+    except Exception:
+        model = _get_gemini()
+        response = model.generate_content(prompt)
+        return _clean_code(response.text)
 
 
 def _run_file(path: Path, args: list, timeout: int) -> str:
@@ -244,7 +260,7 @@ def _run_file(path: Path, args: list, timeout: int) -> str:
         return f"Execution error: {e}"
 
 
-def _build(description, language, output_path, args, timeout, speak=None, player=None) -> str:
+def _build(description, language, output_path, args, timeout, speak=None, player=None, ide="auto", model_pref="auto") -> str:
     if not description:
         return "Please describe what you want me to build, sir."
 
@@ -254,7 +270,7 @@ def _build(description, language, output_path, args, timeout, speak=None, player
     lang = language or "python"
 
     try:
-        code, path = _write(description, lang, output_path, player)
+        code, path = _write(description, lang, output_path, player, model_pref=model_pref)
         print(f"[Code] ✅ Written: {path}")
     except Exception as e:
         msg = f"Could not write initial code: {e}"
@@ -270,10 +286,14 @@ def _build(description, language, output_path, args, timeout, speak=None, player
         last_output = _run_file(path, args, timeout)
 
         if not _has_error(last_output):
+            ide_msg = ""
+            if ide and ide not in ("none", "false"):
+                ide_res = coder_engine.open_in_ide(path, ide=ide)
+                ide_msg = f"\n{ide_res}"
             msg = (
                 f"Build complete, sir. "
                 f"The code is working after {attempt} attempt{'s' if attempt > 1 else ''}. "
-                f"Saved to {path}."
+                f"Saved to {path}.{ide_msg}"
             )
             if speak: speak(msg)
             return f"{msg}\n\nOutput:\n{last_output}"
@@ -283,7 +303,7 @@ def _build(description, language, output_path, args, timeout, speak=None, player
             player.write_log(f"[Code] Fixing (attempt {attempt})...")
 
         try:
-            code = _fix_code(code, last_output, description)
+            code = _fix_code(code, last_output, description, model_pref=model_pref)
             _save_file(path, code)
         except Exception as e:
             msg = f"Could not fix code on attempt {attempt}: {e}"
@@ -297,17 +317,38 @@ def _build(description, language, output_path, args, timeout, speak=None, player
     if speak: speak(msg)
     return f"{msg}\n\nLast code saved to: {path}"
 
-def _write_action(description, language, output_path, player) -> str:
+
+def _write_action(description, language, output_path, player, ide="auto", model_pref="auto") -> str:
     if not description:
         return "Please describe what you want me to write, sir."
     if player:
         player.write_log("[Code] Writing code...")
     try:
-        code, path = _write(description, language, output_path, player)
+        code, path = _write(description, language, output_path, player, model_pref=model_pref)
         print(f"[Code] ✅ Written: {path}")
-        return f"Code written. Saved to: {path}\n\nPreview:\n{_preview(code)}"
+        ide_msg = ""
+        if ide and ide not in ("none", "false"):
+            ide_res = coder_engine.open_in_ide(path, ide=ide)
+            ide_msg = f"\n{ide_res}"
+        return f"Code written. Saved to: {path}{ide_msg}\n\nPreview:\n{_preview(code)}"
     except Exception as e:
         return f"Could not generate code: {e}"
+
+
+def _open_ide_action(file_path: str = "", ide: str = "auto") -> str:
+    target = Path(file_path) if file_path else DESKTOP
+    return coder_engine.open_in_ide(target, ide=ide)
+
+
+def _test_action(file_path: str = "", language: str = "python", timeout: int = 30) -> str:
+    target = Path(file_path) if file_path else DESKTOP
+    if target.is_dir():
+        res = coder_engine.run_unit_tests(target, language=language, timeout=timeout)
+        return res.get("output", "") or ("All tests passed!" if res.get("passed") else "Tests failed.")
+    elif target.is_file():
+        res = coder_engine.run_project_command(f"{sys.executable} {target}", cwd=target.parent, timeout=timeout)
+        return res.get("output", "")
+    return f"Path not found: {file_path}"
 
 
 def _edit_action(file_path, instruction, player) -> str:
@@ -533,13 +574,15 @@ def code_helper(
     Called from main.py.
 
     parameters:
-        action      : write | edit | explain | run | build | screen_debug | optimize | auto
+        action      : write | edit | explain | run | build | test | open_ide | screen_debug | optimize | auto
         description : What the code should do / what change to make / what problem to analyze
         language    : Programming language (default: python)
         output_path : Where to save — user specifies full path or filename
-        file_path   : Path to existing file (edit / explain / run / build / optimize)
+        file_path   : Path to existing file (edit / explain / run / build / optimize / test / open_ide)
         code        : Raw code string (explain/optimize without a file)
         args        : CLI argument list for run/build
+        ide         : IDE to open: vscode | antigravity | both | auto (default: auto)
+        model       : AI model preference: auto | gemini | groq | ollama | openrouter (default: auto)
         timeout     : Execution timeout in seconds (default: 30)
     """
     p           = parameters or {}
@@ -550,14 +593,24 @@ def code_helper(
     file_path   = p.get("file_path", "").strip()
     code        = p.get("code", "").strip()
     args        = p.get("args", [])
+    ide         = p.get("ide", "auto").strip()
+    model       = p.get("model", "auto").strip()
     timeout     = int(p.get("timeout", 30))
+
+    # Auto-detect IDE from description if not explicit
+    desc_low = description.lower()
+    if ide == "auto":
+        if any(k in desc_low for k in ("antigravity", "agy")):
+            ide = "antigravity"
+        elif any(k in desc_low for k in ("vscode", "vs code", "visual studio code")):
+            ide = "vscode"
 
     if action == "auto":
         action = _detect_intent(description, file_path, code)
         print(f"[Code] 🤖 Auto-detected: {action}")
 
     if action == "write":
-        return _write_action(description, language, output_path, player)
+        return _write_action(description, language, output_path, player, ide=ide, model_pref=model)
 
     elif action == "edit":
         return _edit_action(
@@ -573,7 +626,21 @@ def code_helper(
         return _run_action(file_path, args, timeout, player)
 
     elif action == "build":
-        return _build(description, language, output_path, args, timeout, speak, player)
+        return _build(description, language, output_path, args, timeout, speak, player, ide=ide, model_pref=model)
+
+    elif action in ("open_ide", "open_vscode", "open_antigravity", "launch_ide"):
+        target = file_path or output_path
+        if not target and description:
+            # Check if description holds a file or project name
+            for w in description.split():
+                if Path(w).exists():
+                    target = w
+                    break
+        return _open_ide_action(target, ide=ide)
+
+    elif action in ("test", "run_tests", "unit_test"):
+        target = file_path or output_path
+        return _test_action(target, language=language, timeout=timeout)
 
     elif action == "optimize":
         return _optimize_action(file_path, code, language, output_path, player)
@@ -582,39 +649,52 @@ def code_helper(
         return _screen_debug_action(description, file_path, player, speak)
 
     else:
-        return f"Unknown action: '{action}'. Use write, edit, explain, run, build, optimize, or screen_debug."
+        return f"Unknown action: '{action}'. Use write, edit, explain, run, build, test, open_ide, optimize, or screen_debug."
 
 
 # ── Tool declaration (auto-discovered by core/action_loader.py) ──────────────
 TOOL = {
     "name": "code_helper",
-    "description": "Writes, edits, explains, runs, or builds code files.",
+    "description": (
+        "Advanced code generator, editor, runner, tester, and IDE launcher. "
+        "Writes production-grade code files, fixes errors iteratively, executes scripts, runs unit tests, "
+        "and opens files directly in VS Code or Antigravity IDE. "
+        "Supports free AI models (Gemini Pro/Flash, Groq Qwen-Coder, Ollama local, OpenRouter)."
+    ),
     "parameters": {
         "type": "OBJECT",
         "properties": {
             "action": {
                 "type": "STRING",
-                "description": "write | edit | explain | run | build | auto (default: auto)"
+                "description": "write | edit | explain | run | build | test | open_ide | optimize | screen_debug | auto (default: auto)"
             },
             "description": {
                 "type": "STRING",
-                "description": "What the code should do or what change to make"
+                "description": "What the code should do or what change/test to make"
             },
             "language": {
                 "type": "STRING",
-                "description": "Programming language (default: python)"
+                "description": "Programming language: python | javascript | typescript | html | cpp | go | rust (default: python)"
             },
             "output_path": {
                 "type": "STRING",
-                "description": "Where to save the file"
+                "description": "Where to save the file (path or filename)"
             },
             "file_path": {
                 "type": "STRING",
-                "description": "Path to existing file for edit/explain/run/build"
+                "description": "Path to existing file or project directory for edit/explain/run/build/test/open_ide"
             },
             "code": {
                 "type": "STRING",
-                "description": "Raw code string for explain"
+                "description": "Raw code string for explain/optimize"
+            },
+            "ide": {
+                "type": "STRING",
+                "description": "IDE to open: vscode | antigravity | both | auto (default: auto)"
+            },
+            "model": {
+                "type": "STRING",
+                "description": "AI model preference: auto | gemini | groq | ollama | openrouter (default: auto)"
             },
             "args": {
                 "type": "STRING",

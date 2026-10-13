@@ -50,7 +50,7 @@ except Exception as _e:            # noqa: BLE001 - reported, never fatal
     print(f"[Video] playback unavailable ({_e}) — the HUD will not show video.")
 
 from PyQt6.QtWidgets import (
-    QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
+    QApplication, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QPushButton, QScrollArea, QSizePolicy, QSplitter,
     QGraphicsScene, QGraphicsView,
     QStackedWidget, QTextEdit, QVBoxLayout, QWidget, QProgressBar,
@@ -126,6 +126,15 @@ _HUE_LINKED = (
 _PALETTE_DEFAULTS: dict[str, str] = {k: getattr(C, k) for k in _HUE_LINKED}
 
 DEFAULT_UI_COLOR = _PALETTE_DEFAULTS["PRI"]
+
+THEME_PRESETS: list[tuple[str, str, str]] = [
+    ("STARK CYAN",   "#00d4ff", "Stark Arc Cyan"),
+    ("MARK III",     "#ff2a4b", "Iron Man Crimson & Gold"),
+    ("MATRIX",       "#00ff66", "Cyber Matrix Green"),
+    ("SYNTHWAVE",    "#b829ff", "Neon Royal Cyberpunk Violet"),
+    ("TITANIUM",     "#6e8494", "Stealth Titanium Carbon"),
+    ("WAR MACHINE",  "#ffaa00", "Warning Hazard Amber"),
+]
 
 
 def apply_ui_accent(accent_hex: str) -> bool:
@@ -839,6 +848,110 @@ class HudCanvas(QWidget):
             p.drawText(QRectF(cx - r, cy - fsz, r * 2, fsz * 2),
                        Qt.AlignmentFlag.AlignCenter, name)
 
+    def _paint_particle_orb(self, p: QPainter, cx: float, cy: float, r: float,
+                            W: float = 0.0, H: float = 0.0):
+        """Draw an audio-reactive 3D Quantum Particle Orb at (cx, cy) with radius r.
+        Features rotating spherical latitude/longitude wireframe rings, an inner pulsating
+        singularity core, orbital energy particles that expand with speech, and HUD brackets."""
+        main, acc = self._core_colours()
+        bg = qcol(C.BG)
+        amp = self._amp_disp
+        t = self._core_phase
+        live = (self.speaking or amp > 0.04) and not self.muted
+
+        def blend(col: QColor, a: float) -> QColor:
+            k = max(0.0, min(1.0, a))
+            return QColor(int(bg.red()   + (col.red()   - bg.red())   * k),
+                          int(bg.green() + (col.green() - bg.green()) * k),
+                          int(bg.blue()  + (col.blue()  - bg.blue())  * k))
+
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
+        # 1. Soft atmospheric energy glow
+        lift = 1.0 + 0.65 * amp + (0.22 if self.speaking else 0.0)
+        p.setPen(Qt.PenStyle.NoPen)
+        for gr, a0 in ((r * 0.75, 0.28), (r * 0.40, 0.42)):
+            g = QRadialGradient(cx, cy, gr)
+            g.setColorAt(0.00, blend(main, min(0.95, a0 * lift)))
+            g.setColorAt(0.50, blend(main, min(0.95, a0 * lift * 0.45)))
+            g.setColorAt(0.85, blend(main, min(0.95, a0 * lift * 0.12)))
+            g.setColorAt(1.00, blend(main, 0.0))
+            p.setBrush(QBrush(g))
+            p.drawEllipse(QRectF(cx - gr, cy - gr, gr * 2, gr * 2))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
+        # 2. Framing tech brackets
+        if W > 40 and H > 40:
+            m, arm = min(W, H) * 0.035, min(W, H) * 0.05
+            p.setPen(QPen(blend(main, 0.40), 1.2))
+            for sx, sy in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+                x = cx + sx * (W / 2 - m)
+                y = cy + sy * (H / 2 - m)
+                p.drawLine(QLineF(x, y, x - sx * arm, y))
+                p.drawLine(QLineF(x, y, x, y - sy * arm))
+
+        # 3. Outer boundary orbital ring
+        orb_r = r * 0.62 * (1.0 + 0.08 * amp)
+        p.setPen(QPen(blend(main, 0.35 + 0.3 * amp), 1.2))
+        p.drawEllipse(QRectF(cx - orb_r, cy - orb_r, orb_r * 2, orb_r * 2))
+
+        # 4. 3D rotating latitude and longitude rings
+        p_tilt = 0.38
+        lat_count = 5
+        for i in range(1, lat_count):
+            frac = (i / lat_count) * 2.0 - 1.0
+            ring_y = cy + frac * orb_r * math.cos(p_tilt)
+            r_x = orb_r * math.sqrt(max(0.01, 1.0 - frac * frac))
+            r_y = r_x * math.sin(p_tilt) * 0.85
+            if r_x > 2:
+                p.setPen(QPen(blend(main, 0.22 + 0.2 * (1.0 - abs(frac))), 1.0))
+                p.drawEllipse(QRectF(cx - r_x, ring_y - r_y, r_x * 2, r_y * 2))
+
+        lon_count = 6
+        spin = t * 0.75
+        for i in range(lon_count):
+            angle = spin + (i * math.pi / lon_count)
+            rx = orb_r * math.cos(angle)
+            ry = orb_r
+            alpha = 0.20 + 0.35 * abs(math.cos(angle)) + 0.2 * amp
+            p.setPen(QPen(blend(acc if i % 2 == 0 else main, alpha), 1.1 if i % 2 == 0 else 0.9))
+            p.drawEllipse(QRectF(cx - abs(rx), cy - ry, abs(rx) * 2, ry * 2))
+
+        # 5. Pulsing audio-reactive particle cloud
+        particle_count = 32
+        for i in range(particle_count):
+            theta = i * 2.39996 + t * 0.4
+            phi = math.acos(1.0 - 2.0 * (i + 0.5) / particle_count)
+            pr = (orb_r * 0.92) + (math.sin(t * 3.0 + i) * 10.0) + (amp * 28.0 * (0.8 + 0.4 * math.sin(i)))
+            px = cx + pr * math.sin(phi) * math.cos(theta)
+            py = cy + pr * math.cos(phi) * 0.88
+            depth = math.sin(phi) * math.sin(theta)
+            p_alpha = max(0.15, min(0.95, 0.45 + 0.45 * depth + 0.3 * amp))
+            dot_sz = max(1.5, (2.2 + 1.8 * depth + 2.0 * amp))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(blend(acc if i % 3 == 0 else main, p_alpha)))
+            p.drawEllipse(QRectF(px - dot_sz / 2, py - dot_sz / 2, dot_sz, dot_sz))
+
+        # 6. Quantum Singularity Core
+        core_r = orb_r * (0.24 + 0.12 * amp)
+        cg = QRadialGradient(cx, cy, core_r)
+        cg.setColorAt(0.00, qcol(C.WHITE))
+        cg.setColorAt(0.40, blend(main, 0.95))
+        cg.setColorAt(0.75, blend(acc, 0.50))
+        cg.setColorAt(1.00, blend(main, 0.0))
+        p.setBrush(QBrush(cg))
+        p.drawEllipse(QRectF(cx - core_r, cy - core_r, core_r * 2, core_r * 2))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
+        # 7. Concentric sonic pulses when live speech is active
+        if live:
+            for ring_idx in range(3):
+                phase = (t * 2.2 + ring_idx * 0.33) % 1.0
+                pr_ring = orb_r * (0.3 + 0.8 * phase)
+                ring_alpha = (1.0 - phase) * (0.4 + 0.6 * amp)
+                p.setPen(QPen(blend(acc, ring_alpha), 1.2))
+                p.drawEllipse(QRectF(cx - pr_ring, cy - pr_ring, pr_ring * 2, pr_ring * 2))
+
     def paintEvent(self, _):
         p = QPainter(self)
         if not p.isActive():      # device not ready (e.g. 0-size during layout) — skip cleanly
@@ -882,11 +995,11 @@ class HudCanvas(QWidget):
                 else:
                     _acc = qcol(C.PRI)
             self._avatar.paint(p, cx, _head_cy, _r_head, _main, _acc, qcol(C.BG))
-
-        # reactor core — the other centrepiece, and the fallback if the head
-        # could not be built. There is no third path: the old face.png branch
-        # was unreachable (no such file ships) and the bare orb it fell through
-        # to is what this replaces.
+        elif self.hud_style == "orb":
+            _band_t = 12.0
+            _band_h = max(60.0, _sy_status - 12.0 - _band_t)
+            _r = min(W * 0.46, _band_h / 2.0)
+            self._paint_particle_orb(p, cx, _band_t + _band_h / 2.0, _r, W, _band_h)
         else:
             _band_t = 12.0
             _band_h = max(60.0, _sy_status - 12.0 - _band_t)
@@ -1617,7 +1730,7 @@ class CustomizeOverlay(QWidget):
     """Floating overlay — change assistant name, user name, UI colour and voice."""
 
     saved = pyqtSignal(str, str, str, str)   # assistant_name, user_name, ui_color, voice
-    _OW, _OH = 400, 588
+    _OW, _OH = 420, 680
 
     def __init__(self, assistant_name="JARVIS", user_name="",
                  ui_color=DEFAULT_UI_COLOR, voice="", parent=None):
@@ -1713,6 +1826,24 @@ class CustomizeOverlay(QWidget):
         clr_hdr.addWidget(df_btn)
         lay.addLayout(clr_hdr)
 
+        # ── Cyberpunk / Iron Man Theme Presets ──────────────────────────────
+        lay.addSpacing(2)
+        lay.addWidget(_lbl("THEME PRESETS  —  1-click palettes", 8,
+                           color=C.TEXT_DIM, align=Qt.AlignmentFlag.AlignLeft))
+        preset_grid = QGridLayout()
+        preset_grid.setSpacing(4)
+        self._preset_pills: list[tuple[str, QPushButton]] = []
+        for idx, (p_name, p_hex, p_desc) in enumerate(THEME_PRESETS):
+            btn = QPushButton(f"● {p_name}")
+            btn.setFixedHeight(24)
+            btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setToolTip(f"{p_desc} ({p_hex})")
+            btn.clicked.connect(lambda _=False, hx=p_hex: self._set_color(hx, update_wheel=True, preview=True))
+            preset_grid.addWidget(btn, idx // 3, idx % 3)
+            self._preset_pills.append((p_hex.lower(), btn))
+        lay.addLayout(preset_grid)
+
         self._initial_color = (ui_color or DEFAULT_UI_COLOR).strip().lower()
         self._sel_color     = self._initial_color
         self.on_preview     = None   # callable(hex) — live preview; MainWindow wires it
@@ -1731,6 +1862,8 @@ class CustomizeOverlay(QWidget):
         self._hex_input.setStyleSheet(_fs)
         self._hex_input.textEdited.connect(self._on_hex_edited)
         lay.addWidget(self._hex_input)
+
+        self._refresh_preset_pills()
 
         lay.addSpacing(6)
         btn_row = QHBoxLayout(); btn_row.setSpacing(8)
@@ -1787,6 +1920,36 @@ class CustomizeOverlay(QWidget):
                 """)
 
     # ── colour flow ──────────────────────────────────────────────────────────
+    def _refresh_preset_pills(self):
+        sel = (self._sel_color or "").lower()
+        for p_hex, btn in getattr(self, "_preset_pills", []):
+            is_active = (sel == p_hex)
+            if is_active:
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background: {p_hex}33;
+                        color: #ffffff;
+                        border: 2px solid {p_hex};
+                        border-radius: 3px;
+                        padding: 0 4px;
+                    }}
+                """)
+            else:
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background: rgba(0, 10, 16, 0.7);
+                        color: {p_hex};
+                        border: 1px solid {p_hex}55;
+                        border-radius: 3px;
+                        padding: 0 4px;
+                    }}
+                    QPushButton:hover {{
+                        background: {p_hex}22;
+                        border: 1px solid {p_hex};
+                        color: #ffffff;
+                    }}
+                """)
+
     def _set_color(self, hx: str, update_wheel: bool = True, preview: bool = True):
         """Updates the selected colour; hex box + wheel stay in sync, theme is live-previewed."""
         self._sel_color = hx.strip().lower()
@@ -1795,6 +1958,7 @@ class CustomizeOverlay(QWidget):
         self._hex_input.blockSignals(False)
         if update_wheel:
             self._wheel.set_color(self._sel_color)
+        self._refresh_preset_pills()
         if preview and self.on_preview:
             self.on_preview(self._sel_color)
 
@@ -2857,7 +3021,7 @@ class RemoteKeyOverlay(QWidget):
             qr.make(fit=True)
             img = qr.make_image(fill_color="black", back_color="white")
             buf = BytesIO()
-            img.save(buf, format="PNG")
+            img.save(buf, {"format": "PNG"})
             px = QPixmap()
             px.loadFromData(buf.getvalue())
             self._qr_label.setPixmap(
@@ -3999,6 +4163,82 @@ class MainWindow(QMainWindow):
         lay.addLayout(mid)
         lay.addStretch()
 
+        # ── Quick HUD Action Dock ────────────────────────────────────────────
+        dock = QHBoxLayout()
+        dock.setSpacing(4)
+        dock.setContentsMargins(0, 0, 0, 0)
+
+        _btn_q_style = f"""
+            QPushButton {{
+                background: {C.PANEL2}; color: {C.TEXT};
+                border: 1px solid {C.BORDER_A}; border-radius: 4px;
+                padding: 0 6px; font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background: {C.PRI_GHO}; color: {C.WHITE};
+                border-color: {C.PRI};
+            }}
+        """
+
+        from memory.config_manager import get_hud_style
+        _hs = get_hud_style()
+        _hs_icons = {"face": "🧑 AVATAR", "core": "⚛ REACTOR", "orb": "🌐 ORB"}
+        self._quick_hud_btn = QPushButton(_hs_icons.get(_hs, "🧑 AVATAR"))
+        self._quick_hud_btn.setFixedHeight(26)
+        self._quick_hud_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        self._quick_hud_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_hud_btn.setToolTip("Switch HUD Centerpiece (3D Avatar / Arc Reactor / Quantum Orb)")
+        self._quick_hud_btn.setStyleSheet(_btn_q_style)
+        self._quick_hud_btn.clicked.connect(self._toggle_hud_style)
+        dock.addWidget(self._quick_hud_btn)
+
+        self._quick_theme_btn = QPushButton("🎨 THEME")
+        self._quick_theme_btn.setFixedHeight(26)
+        self._quick_theme_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        self._quick_theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_theme_btn.setToolTip("Cycle Cyberpunk & Iron Man Color Presets")
+        self._quick_theme_btn.setStyleSheet(_btn_q_style)
+        self._quick_theme_btn.clicked.connect(self._cycle_theme_preset)
+        dock.addWidget(self._quick_theme_btn)
+
+        self._quick_dev_btn = QPushButton("💻 CODER")
+        self._quick_dev_btn.setFixedHeight(26)
+        self._quick_dev_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        self._quick_dev_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_dev_btn.setToolTip("Autonomous AI Software Engineer (Dev Agent)")
+        self._quick_dev_btn.setStyleSheet(_btn_q_style)
+        self._quick_dev_btn.clicked.connect(self._on_quick_dev_clicked)
+        dock.addWidget(self._quick_dev_btn)
+
+        self._quick_snip_btn = QPushButton("👁 SNIP")
+        self._quick_snip_btn.setFixedHeight(26)
+        self._quick_snip_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        self._quick_snip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_snip_btn.setToolTip("Vision Snip — Inspect Screen Elements & Spatial Grounding")
+        self._quick_snip_btn.setStyleSheet(_btn_q_style)
+        self._quick_snip_btn.clicked.connect(self._on_quick_snip_clicked)
+        dock.addWidget(self._quick_snip_btn)
+
+        self._quick_chrome_btn = QPushButton("🌐 CHROME")
+        self._quick_chrome_btn.setFixedHeight(26)
+        self._quick_chrome_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        self._quick_chrome_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_chrome_btn.setToolTip("Active Google Chrome Tabs Automation")
+        self._quick_chrome_btn.setStyleSheet(_btn_q_style)
+        self._quick_chrome_btn.clicked.connect(self._on_quick_chrome_clicked)
+        dock.addWidget(self._quick_chrome_btn)
+
+        self._quick_mic_btn = QPushButton("🎙")
+        self._quick_mic_btn.setFixedSize(26, 26)
+        self._quick_mic_btn.setFont(QFont("Courier New", 10))
+        self._quick_mic_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_mic_btn.setToolTip("Mute / Unmute Microphone")
+        self._quick_mic_btn.clicked.connect(self._toggle_mute)
+        dock.addWidget(self._quick_mic_btn)
+
+        lay.addLayout(dock)
+        lay.addSpacing(14)
+
         right_col = QVBoxLayout(); right_col.setSpacing(2)
         self._clock_lbl = QLabel("00:00:00")
         self._clock_lbl.setFont(QFont("Courier New", 14, QFont.Weight.Bold))
@@ -4102,8 +4342,22 @@ class MainWindow(QMainWindow):
             l.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
             return l
 
-        lay.addWidget(_sec("ACTIVITY LOG"))
+        log_header = QWidget()
+        log_header_lay = QHBoxLayout(log_header)
+        log_header_lay.setContentsMargins(0, 0, 0, 0)
+        log_header_lay.addWidget(_sec("ACTIVITY LOG"))
+        log_header_lay.addStretch()
+        
         self._log = LogWidget()
+        
+        clear_btn = QPushButton("[Clear]")
+        clear_btn.setFont(QFont("Courier New", 7))
+        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        clear_btn.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent; border: none;")
+        clear_btn.clicked.connect(self._log.clear)
+        log_header_lay.addWidget(clear_btn)
+        
+        lay.addWidget(log_header)
         lay.addWidget(self._log, stretch=1)
 
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
@@ -4894,7 +5148,8 @@ class MainWindow(QMainWindow):
 
         lay.addWidget(_fl("[F4] Mute  ·  [F11] Fullscreen"))
         lay.addStretch()
-        lay.addWidget(_fl("By FatihMakes", C.PRI_DIM))
+        lay.addWidget(_fl("By YASH SURVE", C.PRI_DIM))
+        lay.addWidget(_fl("  ·  Dev: Yash", C.PRI_DIM))
         return w
 
     def _on_file_selected(self, path: str):
@@ -5139,29 +5394,42 @@ class MainWindow(QMainWindow):
 
     def _refresh_hud_btn(self):
         from memory.config_manager import get_hud_style
-        face = get_hud_style() == "face"
-        # Neither state is "off", so both read as active — this is a choice
-        # between two things, not a switch with a disabled side.
+        style_key = get_hud_style()
         style = f"""
             QPushButton {{ background: {C.PANEL2}; color: {C.PRI};
                 border: 1px solid {C.BORDER_A}; border-radius: 3px;
                 text-align: left; padding: 0 8px; }}
             QPushButton:hover {{ color: {C.WHITE}; border: 1px solid {C.BORDER_B}; }}"""
-        self._hud_btn.setText("🧑  HUD: ANIMATED FACE" if face
-                              else "◉  HUD: REACTOR CORE")
+        if style_key == "orb":
+            self._hud_btn.setText("🌐  HUD: QUANTUM ORB")
+            self._hud_btn.setToolTip(
+                "A 3D software-rendered audio-reactive quantum sphere with sonic pulse rings. "
+                "Tap to cycle centerpiece.")
+        elif style_key == "core":
+            self._hud_btn.setText("⚛  HUD: ARC REACTOR")
+            self._hud_btn.setToolTip(
+                "An Arc Reactor core that turns with the state and reacts to speech. "
+                "Tap to cycle centerpiece.")
+        else:
+            self._hud_btn.setText("🧑  HUD: 3D AVATAR")
+            self._hud_btn.setToolTip(
+                "A 3D holographic head that speaks your words and tracks your gaze. "
+                "Tap to cycle centerpiece.")
         self._hud_btn.setStyleSheet(style)
-        self._hud_btn.setToolTip(
-            "An animated head that speaks your words and shows what JARVIS is "
-            "doing. Tap to switch to the reactor core."
-            if face else
-            "A reactor core that turns with the state and moves with your voice. "
-            "Tap to switch to the animated head.")
+        if hasattr(self, "_quick_hud_btn"):
+            icon_map = {"face": "🧑 AVATAR", "core": "⚛ REACTOR", "orb": "🌐 ORB"}
+            self._quick_hud_btn.setText(icon_map.get(style_key, "🧑 AVATAR"))
 
     def _toggle_hud_style(self):
-        """Swap the centrepiece. Both objects stay in memory, so the change is
-        instant and switching back costs nothing."""
+        """Cycle the centrepiece across all 3 styles: face -> core -> orb -> face."""
         from memory.config_manager import get_hud_style, save_hud_style
-        want = "core" if get_hud_style() == "face" else "face"
+        curr = get_hud_style()
+        if curr == "face":
+            want = "core"
+        elif curr == "core":
+            want = "orb"
+        else:
+            want = "face"
         save_hud_style(want)
         try:
             self.hud.hud_style = want
@@ -5169,9 +5437,58 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         self._refresh_hud_btn()
-        self._log.append_log(
-            "SYS: HUD switched to the animated face." if want == "face"
-            else "SYS: HUD switched to the reactor core.")
+        name_map = {"face": "3D holographic avatar", "core": "arc reactor core", "orb": "quantum particle orb"}
+        self._log.append_log(f"SYS: HUD switched to the {name_map.get(want, want)}.")
+
+    def _cycle_theme_preset(self):
+        """1-click cycle through THEME_PRESETS."""
+        curr_hex = C.PRI.lower()
+        preset_hexes = [p[1].lower() for p in THEME_PRESETS]
+        next_idx = 0
+        if curr_hex in preset_hexes:
+            next_idx = (preset_hexes.index(curr_hex) + 1) % len(preset_hexes)
+        p_name, p_hex, p_desc = THEME_PRESETS[next_idx]
+
+        old = current_palette()
+        if apply_ui_accent(p_hex):
+            retheme_all_widgets(old, current_palette())
+            try:
+                data = _read_full_config()
+                data["ui_color"] = p_hex
+                API_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
+            except Exception:
+                pass
+            self._log.append_log(f"SYS: Theme activated: {p_name} ({p_hex}) — {p_desc}")
+            if hasattr(self, "_quick_theme_btn"):
+                self._quick_theme_btn.setToolTip(f"Theme: {p_name} ({p_hex})\nClick to cycle next preset")
+
+    def _on_quick_dev_clicked(self):
+        from PyQt6.QtWidgets import QInputDialog
+        task, ok = QInputDialog.getText(
+            self, "JARVIS Autonomous Coder",
+            "Enter software requirements or feature to build:",
+            QLineEdit.EchoMode.Normal, ""
+        )
+        if ok and task.strip():
+            cmd = f"Build and test this: {task.strip()}"
+            self._log.append_log(f"You (Dev Agent): {cmd}")
+            if self.on_text_command:
+                threading.Thread(target=self.on_text_command, args=(cmd,), daemon=True).start()
+        elif not ok:
+            self._input.setText("Build and test: ")
+            self._input.setFocus()
+
+    def _on_quick_snip_clicked(self):
+        cmd = "Analyze my current screen and tell me what is open and visible."
+        self._log.append_log(f"You: {cmd}")
+        if self.on_text_command:
+            threading.Thread(target=self.on_text_command, args=(cmd,), daemon=True).start()
+
+    def _on_quick_chrome_clicked(self):
+        cmd = "List and inspect my open Google Chrome tabs."
+        self._log.append_log(f"You: {cmd}")
+        if self.on_text_command:
+            threading.Thread(target=self.on_text_command, args=(cmd,), daemon=True).start()
 
     def _toggle_ptt(self):
         from memory.config_manager import (get_push_to_talk_enabled,
@@ -5529,6 +5846,15 @@ class MainWindow(QMainWindow):
                     border: 1px solid {C.MUTED_C}; border-radius: 3px;
                 }}
             """)
+            if hasattr(self, "_quick_mic_btn"):
+                self._quick_mic_btn.setText("🔇")
+                self._quick_mic_btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background: #25000a; color: {C.MUTED_C};
+                        border: 1px solid {C.MUTED_C}; border-radius: 4px;
+                    }}
+                    QPushButton:hover {{ background: #38000f; }}
+                """)
         else:
             self._mute_btn.setText("🎙  MICROPHONE ACTIVE")
             self._mute_btn.setStyleSheet(f"""
@@ -5538,6 +5864,15 @@ class MainWindow(QMainWindow):
                 }}
                 QPushButton:hover {{ background: #001f10; }}
             """)
+            if hasattr(self, "_quick_mic_btn"):
+                self._quick_mic_btn.setText("🎙")
+                self._quick_mic_btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background: #001f10; color: {C.GREEN};
+                        border: 1px solid {C.GREEN}; border-radius: 4px;
+                    }}
+                    QPushButton:hover {{ background: #003318; }}
+                """)
 
     def _send(self):
         txt = self._input.text().strip()

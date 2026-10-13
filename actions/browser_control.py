@@ -7,10 +7,19 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 import threading
 import webbrowser
 from pathlib import Path
 from typing import Optional
+
+for _stream in ("stdout", "stderr"):
+    try:
+        _s = getattr(sys, _stream, None)
+        if _s is not None and hasattr(_s, "reconfigure"):
+            _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 from playwright.async_api import (
     async_playwright,
@@ -20,6 +29,48 @@ from playwright.async_api import (
     TimeoutError as PlaywrightTimeout,
 )
 _OS = platform.system()   # "Windows" | "Darwin" | "Linux"
+
+_ALIASES: dict[str, str] = {
+    "google chrome":   "chrome",
+    "google-chrome":   "chrome",
+    "microsoft edge":  "edge",
+    "ms edge":         "edge",
+    "msedge":          "edge",
+    "mozilla firefox": "firefox",
+    "opera gx":        "operagx",
+    "opera_gx":        "operagx",
+}
+
+try:
+    import psutil
+    _PSUTIL = True
+except ImportError:
+    _PSUTIL = False
+
+
+def _is_browser_process_running(browser: str) -> bool:
+    if not _PSUTIL:
+        return False
+    try:
+        name = _ALIASES.get(browser.lower().strip(), browser.lower().strip())
+        patterns = {
+            "chrome": ["chrome.exe", "google-chrome", "chrome"],
+            "edge": ["msedge.exe", "microsoft-edge", "msedge"],
+            "firefox": ["firefox.exe", "firefox"],
+            "opera": ["opera.exe", "opera"],
+            "operagx": ["opera.exe", "opera_gx"],
+            "brave": ["brave.exe", "brave"],
+            "vivaldi": ["vivaldi.exe", "vivaldi"],
+        }
+        pats = patterns.get(name, [f"{name}.exe", name])
+        for p in psutil.process_iter(['name']):
+            p_name = (p.info['name'] or '').lower()
+            if any(pat == p_name or p_name.startswith(pat) for pat in pats):
+                return True
+    except Exception:
+        pass
+    return False
+
 
 def _normalize_url(url: str) -> str:
     """
@@ -441,6 +492,38 @@ def _open_native(url: str, browser_name: Optional[str]) -> str:
         return f"Could not open a browser for: {url}"
 
 
+def _find_active_cdp_port(browser_name: str = "chrome") -> int | None:
+    b = _ALIASES.get(browser_name.lower().strip(), browser_name.lower().strip())
+    candidates = []
+    local = os.environ.get("LOCALAPPDATA", "")
+    home = Path.home()
+    if _OS == "Windows":
+        if b == "chrome":
+            candidates.append(Path(local) / "Google" / "Chrome" / "User Data" / "DevToolsActivePort")
+        elif b == "edge":
+            candidates.append(Path(local) / "Microsoft" / "Edge" / "User Data" / "DevToolsActivePort")
+        elif b == "brave":
+            candidates.append(Path(local) / "BraveSoftware" / "Brave-Browser" / "User Data" / "DevToolsActivePort")
+    elif _OS == "Darwin":
+        if b == "chrome":
+            candidates.append(home / "Library" / "Application Support" / "Google" / "Chrome" / "DevToolsActivePort")
+    elif _OS == "Linux":
+        if b == "chrome":
+            candidates.append(home / ".config" / "google-chrome" / "DevToolsActivePort")
+
+    for p in candidates:
+        try:
+            if p.exists():
+                lines = p.read_text(encoding="utf-8", errors="ignore").strip().splitlines()
+                if lines and lines[0].strip().isdigit():
+                    port = int(lines[0].strip())
+                    if 1 <= port <= 65535:
+                        return port
+        except Exception:
+            pass
+    return None
+
+
 class _BrowserSession:
     """
     A full session for one browser instance.
@@ -448,8 +531,11 @@ class _BrowserSession:
     """
 
     def __init__(self, browser_name: str):
-        self.browser_name = browser_name
-        self._spec        = _resolve_browser(browser_name)
+        self.browser_name    = browser_name
+        self._spec           = _resolve_browser(browser_name)
+        self._is_cdp: bool   = False
+        self._is_native_mode: bool = False
+        self._browser        = None
 
         self._loop:    asyncio.AbstractEventLoop | None = None
         self._thread:  threading.Thread | None          = None
@@ -496,12 +582,19 @@ class _BrowserSession:
                 await self._context.close()
             except Exception:
                 pass
+        if self._browser:
+            try:
+                await self._browser.close()
+            except Exception:
+                pass
         if self._pw:
             try:
                 await self._pw.stop()
             except Exception:
                 pass
-        self._context = self._page = None
+        self._context = self._page = self._browser = None
+        self._is_cdp = False
+        self._is_native_mode = False
 
     async def _adopt_page(self) -> Page:
         """
@@ -515,15 +608,17 @@ class _BrowserSession:
 
     async def _launch(self):
         """
-        Launches the browser with the real user profile.
-        Does nothing if the context is already open.
+        Launches or attaches to the browser with the real user profile.
+        If Chrome/Chromium is already running, it connects over CDP (if available)
+        or activates Native Tab Control to operate directly on the user's real tabs,
+        pages, and Google accounts — NEVER spawning an isolated blank profile.
         """
-        if self._context is not None:
+        if self._context is not None or self._is_native_mode:
             return
 
         if self._spec is None:
             raise RuntimeError(
-                f"'{self.browser_name}' bu platformda ({_OS}) desteklenmiyor."
+                f"'{self.browser_name}' is not supported on this platform ({_OS})."
             )
 
         engine_name = self._spec["engine"]
@@ -531,6 +626,34 @@ class _BrowserSession:
         channel     = self._spec["channel"]
         engine_obj  = getattr(self._pw, engine_name)
 
+        # 1. CDP Check: If browser is running with remote debugging (dynamic or port 9222 / 9223), attach!
+        if engine_name == "chromium":
+            ports = [9222, 9223]
+            active_port = _find_active_cdp_port(self.browser_name)
+            if active_port and active_port not in ports:
+                ports.insert(0, active_port)
+            for port in ports:
+                try:
+                    self._browser = await engine_obj.connect_over_cdp(f"http://127.0.0.1:{port}", timeout=2000)
+                    if self._browser.contexts:
+                        self._context = self._browser.contexts[0]
+                        pages = self._context.pages
+                        self._page = pages[-1] if pages else await self._context.new_page()
+                        self._is_cdp = True
+                        print(f"[Browser] [CDP] Connected over CDP to running {self.browser_name} (port {port}) with {len(pages)} open tabs!")
+                        return
+                except Exception:
+                    pass
+
+        # 2. If the user's browser is already running:
+        # NEVER open an isolated .jarvis_profiles window that lacks their Google accounts.
+        # Switch immediately to Native Tab Control so we work on THEIR real tabs!
+        if _is_browser_process_running(self.browser_name):
+            print(f"[Browser] [Native] Your {self.browser_name} is already open -- using Native Tab Control on your real tabs & accounts!")
+            self._is_native_mode = True
+            return
+
+        # 3. Firefox:
         if engine_name == "firefox":
             profile = _firefox_profile_dir() or str(
                 Path.home() / ".jarvis_profiles" / "firefox"
@@ -553,9 +676,10 @@ class _BrowserSession:
                 self._context = await engine_obj.launch_persistent_context(jarvis, **kwargs)
 
             self._page = await self._adopt_page()
-            print(f"[Browser] ✅ Firefox launched")
+            print(f"[Browser] [OK] Firefox launched")
             return
 
+        # 4. WebKit / Safari:
         if engine_name == "webkit":
             safari_profile = str(Path.home() / ".jarvis_profiles" / "safari")
             Path(safari_profile).mkdir(parents=True, exist_ok=True)
@@ -568,9 +692,10 @@ class _BrowserSession:
             }
             self._context = await engine_obj.launch_persistent_context(safari_profile, **kwargs)
             self._page = await self._adopt_page()
-            print(f"[Browser] ✅ Safari launched")
+            print(f"[Browser] [OK] Safari launched")
             return
 
+        # 5. Chromium with real profile (when browser is not already running)
         profile = _real_profile_dir(self.browser_name)
 
         kwargs = {
@@ -602,30 +727,19 @@ class _BrowserSession:
         try:
             self._context = await engine_obj.launch_persistent_context(profile, **kwargs)
             self._page = await self._adopt_page()
-            print(f"[Browser] ✅ Launched [{label}] profile={profile}")
+            print(f"[Browser] [OK] Launched [{label}] profile={profile}")
             return
         except Exception as e:
-            print(f"[Browser] ⚠️  Real profile failed for {label}: {e}")
-
-        # The real profile could not be opened (browser already open / locked
-        # profile / newer Chrome versions block the real profile under
-        # automation). Fall back to a persistent JARVIS automation profile —
-        # accounts logged in here once stay logged in on later sessions too.
-        jarvis_profile = str(Path.home() / ".jarvis_profiles" / self.browser_name)
-        Path(jarvis_profile).mkdir(parents=True, exist_ok=True)
-        print(f"[Browser] Retrying with JARVIS profile: {jarvis_profile}")
-
-        try:
-            self._context = await engine_obj.launch_persistent_context(jarvis_profile, **kwargs)
-            self._page = await self._adopt_page()
-            print(f"[Browser] ✅ Launched [{label}] with JARVIS profile "
-                  f"(sign-ins persist across sessions)")
-        except Exception as e2:
-            raise RuntimeError(f"Could not launch {self.browser_name}: {e2}") from e2
+            print(f"[Browser] [WARN] Real profile failed for {label}: {e}")
+            self._is_native_mode = True
+            print(f"[Browser] [Native] Using Native Tab Control for {self.browser_name}")
+            return
 
 
-    async def _get_page(self) -> Page:
+    async def _get_page(self) -> Page | None:
         await self._launch()
+        if self._is_native_mode:
+            return None
         # If somehow page got closed, open a fresh one
         if self._page is None or self._page.is_closed():
             self._page = await self._context.new_page()
@@ -633,6 +747,11 @@ class _BrowserSession:
         return self._page
 
     async def go_to(self, url: str) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_navigate, _focus_window
+            _focus_window(self.browser_name)
+            return _chrome_navigate(url)
 
         url      = _normalize_url(url)
         page     = await self._get_page()
@@ -665,10 +784,18 @@ class _BrowserSession:
         return f"Could not open: {url}"
 
     async def search(self, query: str, engine: str = "google") -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_search
+            return _chrome_search(query)
         base = _SEARCH_ENGINES.get(engine.lower(), _SEARCH_ENGINES["google"])
         return await self.go_to(base + query.replace(" ", "+"))
 
     async def click(self, selector: str = None, text: str = None) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_click
+            return _chrome_click(text or selector or "")
         page = await self._get_page()
         try:
             if text:
@@ -685,6 +812,10 @@ class _BrowserSession:
 
     async def type_text(self, selector: str = None, text: str = "",
                         clear_first: bool = True) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_type_in
+            return _chrome_type_in(selector or "", text, clear_first=clear_first)
         page = await self._get_page()
         try:
             el = page.locator(selector).first if selector else page.locator(":focus")
@@ -696,6 +827,12 @@ class _BrowserSession:
             return f"Type error: {e}"
 
     async def scroll(self, direction: str = "down", amount: int = 500) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _scroll, _focus_window
+            _focus_window(self.browser_name)
+            clicks = max(1, amount // 100)
+            return _scroll(direction=direction, amount=clicks)
         page = await self._get_page()
         try:
             y = amount if direction == "down" else -amount
@@ -705,6 +842,11 @@ class _BrowserSession:
             return f"Scroll error: {e}"
 
     async def press(self, key: str) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _press, _focus_window
+            _focus_window(self.browser_name)
+            return _press(key)
         page = await self._get_page()
         try:
             await page.keyboard.press(key)
@@ -713,6 +855,10 @@ class _BrowserSession:
             return f"Key error: {e}"
 
     async def get_text(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_get_page_text
+            return _chrome_get_page_text()
         page = await self._get_page()
         try:
             text = await page.inner_text("body")
@@ -721,10 +867,22 @@ class _BrowserSession:
             return f"Could not get page text: {e}"
 
     async def get_url(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_get_url
+            return _chrome_get_url()
         page = await self._get_page()
         return page.url
 
     async def fill_form(self, fields: dict) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_type_in
+            results = []
+            for field, val in fields.items():
+                r = _chrome_type_in(field, str(val))
+                results.append(r)
+            return "Form filled: " + ", ".join(results)
         page    = await self._get_page()
         results = []
         for selector, value in fields.items():
@@ -738,6 +896,10 @@ class _BrowserSession:
         return "Form filled: " + ", ".join(results)
 
     async def smart_click(self, description: str) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_click
+            return _chrome_click(description)
         page = await self._get_page()
         for role in ("button", "link", "searchbox", "textbox", "menuitem", "tab"):
             try:
@@ -763,6 +925,10 @@ class _BrowserSession:
         return f"Could not find element: '{description}'"
 
     async def smart_type(self, description: str, text: str) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_type_in
+            return _chrome_type_in(description, text)
         page = await self._get_page()
         candidates = [
             ("placeholder", page.get_by_placeholder(description, exact=False)),
@@ -784,6 +950,10 @@ class _BrowserSession:
         return f"Could not find input: '{description}'"
 
     async def new_tab(self, url: str = "") -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_new_tab
+            return _chrome_new_tab(url)
         page = await self._get_page()
         ctx  = page.context
         new  = await ctx.new_page()
@@ -793,6 +963,10 @@ class _BrowserSession:
         return "New tab opened."
 
     async def close_tab(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_close_tab
+            return _chrome_close_tab()
         page = self._page
         if page and not page.is_closed():
             ctx   = page.context
@@ -802,7 +976,32 @@ class _BrowserSession:
             return "Tab closed."
         return "No active tab to close."
 
+    async def switch_tab(self, target: str = "next") -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_switch_tab
+            return _chrome_switch_tab(target)
+        if self._context:
+            pages = self._context.pages
+            if pages:
+                t = str(target or "next").lower().strip()
+                if t.isdigit() and 1 <= int(t) <= len(pages):
+                    self._page = pages[int(t) - 1]
+                    await self._page.bring_to_front()
+                    return f"Switched to tab {t}: {self._page.url}"
+                idx = pages.index(self._page) if self._page in pages else 0
+                step = -1 if t in ("prev", "previous") else 1
+                next_idx = (idx + step) % len(pages)
+                self._page = pages[next_idx]
+                await self._page.bring_to_front()
+                return f"Switched to tab {next_idx + 1}: {self._page.url}"
+        return "No tabs to switch."
+
     async def screenshot(self, path: str = None) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _screenshot
+            return _screenshot(path)
         page = await self._get_page()
         try:
             save_path = path or str(Path.home() / "Desktop" / "jarvis_screenshot.png")
@@ -812,6 +1011,11 @@ class _BrowserSession:
             return f"Screenshot error: {e}"
 
     async def back(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _hotkey, _focus_window
+            _focus_window(self.browser_name)
+            return _hotkey("alt", "left")
         page = await self._get_page()
         try:
             await page.go_back(timeout=10_000)
@@ -820,6 +1024,11 @@ class _BrowserSession:
             return f"Back error: {e}"
 
     async def forward(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _hotkey, _focus_window
+            _focus_window(self.browser_name)
+            return _hotkey("alt", "right")
         page = await self._get_page()
         try:
             await page.go_forward(timeout=10_000)
@@ -827,13 +1036,106 @@ class _BrowserSession:
         except Exception as e:
             return f"Forward error: {e}"
 
-    async def reload(self) -> str:
+    async def reload(self, hard: bool = False) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_reload
+            return _chrome_reload(hard)
         page = await self._get_page()
         try:
             await page.reload(timeout=15_000)
             return f"Page reloaded: {page.url}"
         except Exception as e:
             return f"Reload error: {e}"
+
+    async def list_tabs(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_list_tabs
+            return _chrome_list_tabs()
+        if self._context:
+            pages = self._context.pages
+            if pages:
+                lines = []
+                for i, p in enumerate(pages):
+                    active = " (active)" if p == self._page else ""
+                    try:
+                        title = await p.title()
+                    except Exception:
+                        title = ""
+                    lines.append(f"  [{i+1}] {p.url} ({title}){active}")
+                return f"Open tabs ({len(pages)}):\n" + "\n".join(lines)
+        return "No open tabs."
+
+    async def zoom(self, factor: str = "reset") -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_zoom
+            return _chrome_zoom(factor)
+        page = await self._get_page()
+        f = str(factor or "reset").lower().strip()
+        if f in ("in", "+", "zoom_in"):
+            await page.keyboard.press("Control+=")
+            return "Zoomed in."
+        elif f in ("out", "-", "zoom_out"):
+            await page.keyboard.press("Control+-")
+            return "Zoomed out."
+        else:
+            await page.keyboard.press("Control+0")
+            return "Reset zoom."
+
+    async def find_text(self, query: str) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_find
+            return _chrome_find(query)
+        page = await self._get_page()
+        await page.keyboard.press("Control+f")
+        if query:
+            await page.keyboard.type(query)
+            await page.keyboard.press("Enter")
+        return f"Searched for '{query}' on page."
+
+    async def duplicate_tab(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_duplicate_tab
+            return _chrome_duplicate_tab()
+        page = await self._get_page()
+        url = page.url
+        return await self.new_tab(url)
+
+    async def history(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_history
+            return _chrome_history()
+        return await self.go_to("chrome://history" if self.browser_name == "chrome" else "about:history")
+
+    async def downloads(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_downloads
+            return _chrome_downloads()
+        return await self.go_to("chrome://downloads" if self.browser_name == "chrome" else "about:downloads")
+
+    async def bookmarks(self) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            from actions.computer_control import _chrome_bookmarks
+            return _chrome_bookmarks()
+        return await self.go_to("chrome://bookmarks" if self.browser_name == "chrome" else "about:bookmarks")
+
+    async def evaluate_script(self, script: str) -> str:
+        await self._launch()
+        if self._is_native_mode:
+            return "Script evaluation requires automation/CDP session. Start Chrome with 'launch_debug'."
+        page = await self._get_page()
+        try:
+            res = await page.evaluate(script)
+            return f"Script result: {res}"
+        except Exception as e:
+            return f"Script evaluation failed: {e}"
 
     async def close_browser(self) -> str:
         await self._async_close()
@@ -1017,8 +1319,15 @@ def browser_control(
         elif action == "type":
             result = sess.run(sess.type_text(
                 params.get("selector"), params.get("text", ""), params.get("clear_first", True)))
+        elif action in ("goto_page", "pdf_page", "chrome_pdf_goto_page", "scroll_to_page"):
+            from actions.computer_control import _chrome_pdf_goto_page
+            result = _chrome_pdf_goto_page(params.get("page", params.get("page_number", 1)), params.get("relative_pages", None))
         elif action == "scroll":
-            result = sess.run(sess.scroll(params.get("direction", "down"), int(params.get("amount", 500))))
+            if params.get("page") is not None or params.get("page_number") is not None:
+                from actions.computer_control import _chrome_pdf_goto_page
+                result = _chrome_pdf_goto_page(params.get("page", params.get("page_number", 1)))
+            else:
+                result = sess.run(sess.scroll(params.get("direction", "down"), int(params.get("amount", 500))))
         elif action == "fill_form":
             result = sess.run(sess.fill_form(params.get("fields", {})))
         elif action == "smart_click":
@@ -1040,7 +1349,44 @@ def browser_control(
         elif action == "forward":
             result = sess.run(sess.forward())
         elif action == "reload":
-            result = sess.run(sess.reload())
+            result = sess.run(sess.reload(bool(params.get("hard", False))))
+        elif action in ("fullscreen", "toggle_fullscreen"):
+            result = sess.run(sess.press("F11"))
+        elif action == "task_manager":
+            from actions.computer_control import _chrome_task_manager
+            result = _chrome_task_manager()
+        elif action in ("print_pdf", "print"):
+            from actions.computer_control import _chrome_print_pdf
+            result = _chrome_print_pdf()
+        elif action == "page_source":
+            from actions.computer_control import _chrome_page_source
+            result = _chrome_page_source()
+        elif action == "clear_data":
+            from actions.computer_control import _chrome_clear_data
+            result = _chrome_clear_data()
+        elif action == "switch_tab":
+            target = params.get("target", params.get("tab", "next"))
+            result = sess.run(sess.switch_tab(target))
+        elif action in ("list_tabs", "get_tabs"):
+            result = sess.run(sess.list_tabs())
+        elif action in ("zoom", "zoom_in", "zoom_out", "zoom_reset"):
+            factor = params.get("level", "in" if "in" in action else ("out" if "out" in action else "reset"))
+            result = sess.run(sess.zoom(factor))
+        elif action in ("find_text", "find_on_page"):
+            result = sess.run(sess.find_text(params.get("query", params.get("text", ""))))
+        elif action == "duplicate_tab":
+            result = sess.run(sess.duplicate_tab())
+        elif action == "history":
+            result = sess.run(sess.history())
+        elif action == "downloads":
+            result = sess.run(sess.downloads())
+        elif action == "bookmarks":
+            result = sess.run(sess.bookmarks())
+        elif action in ("evaluate", "evaluate_script", "execute_script"):
+            result = sess.run(sess.evaluate_script(params.get("script", params.get("text", ""))))
+        elif action in ("launch_debug", "enable_debugging"):
+            from actions.computer_control import _chrome_launch_debug
+            result = _chrome_launch_debug(int(params.get("port", 9222)))
         else:
             result = f"Unknown browser action: '{action}'"
 
@@ -1063,13 +1409,34 @@ def _log(player, text: str):
 # ── Tool declaration (auto-discovered by core/action_loader.py) ──────────────
 TOOL = {
     "name": "browser_control",
-    "description": "Controls any web browser. Use for: opening websites, searching the web, clicking elements, filling forms, scrolling, screenshots, navigation, any web-based task. Simple open/search requests launch the user's own browser normally (their real profile and logged-in accounts); interactive actions (click, type, fill_form...) attach an automation browser. Always pass the 'browser' parameter when the user specifies a browser (e.g. 'open in Edge', 'use Firefox', 'open Chrome'). Multiple browsers can run simultaneously.",
+    "description": (
+        "Controls web browsers directly on the user's running tabs, profiles, and Google accounts. "
+        "Use for: opening websites, new tabs, switching tabs, listing tabs, closing tabs, clicking elements, "
+        "filling forms, typing, scrolling, screenshots, navigation, zooming, searching on page, history, downloads, "
+        "bookmarks, duplicating tabs, script evaluation, and web tasks. "
+        "When the user has Chrome open, all actions work directly on THEIR open tabs without "
+        "launching an empty guest window. "
+        "Actions: go_to | search | new_tab | switch_tab | list_tabs | close_tab | duplicate_tab | "
+        "smart_click | smart_type | get_text | get_url | fill_form | click | type | scroll | press | "
+        "zoom | find_text | history | downloads | bookmarks | fullscreen | task_manager | print_pdf | page_source | clear_data | "
+        "evaluate_script | back | forward | reload | switch | list_browsers | close | close_all | launch_debug"
+    ),
     "parameters": {
         "type": "OBJECT",
         "properties": {
             "action": {
                 "type": "STRING",
-                "description": "go_to | search | click | type | scroll | fill_form | smart_click | smart_type | get_text | get_url | press | new_tab | close_tab | screenshot | back | forward | reload | switch | list_browsers | close | close_all"
+                "description": (
+                    "go_to | search | new_tab | switch_tab | list_tabs | close_tab | duplicate_tab | "
+                    "click | type | scroll | goto_page | fill_form | smart_click | smart_type | get_text | get_url | "
+                    "press | zoom | find_text | history | downloads | bookmarks | fullscreen | task_manager | "
+                    "print_pdf | page_source | clear_data | evaluate_script | "
+                    "screenshot | back | forward | reload | switch | list_browsers | close | close_all | launch_debug"
+                )
+            },
+            "page": {
+                "type": "INTEGER",
+                "description": "Page number to navigate to for goto_page or PDF scroll"
             },
             "browser": {
                 "type": "STRING",
@@ -1081,7 +1448,11 @@ TOOL = {
             },
             "query": {
                 "type": "STRING",
-                "description": "Search query for search action"
+                "description": "Search query for search or find_text action"
+            },
+            "target": {
+                "type": "STRING",
+                "description": "Target tab for switch_tab: next | prev | 1..9 | last | tab name"
             },
             "engine": {
                 "type": "STRING",
@@ -1093,11 +1464,19 @@ TOOL = {
             },
             "text": {
                 "type": "STRING",
-                "description": "Text to click or type"
+                "description": "Text to click, type, or search"
             },
             "description": {
                 "type": "STRING",
                 "description": "Element description for smart_click/smart_type"
+            },
+            "level": {
+                "type": "STRING",
+                "description": "Zoom level: in | out | reset"
+            },
+            "script": {
+                "type": "STRING",
+                "description": "JavaScript code to execute in evaluate_script"
             },
             "direction": {
                 "type": "STRING",
@@ -1122,6 +1501,10 @@ TOOL = {
             "clear_first": {
                 "type": "BOOLEAN",
                 "description": "Clear field before typing (default: true)"
+            },
+            "hard": {
+                "type": "BOOLEAN",
+                "description": "Hard refresh for reload action (default: false)"
             }
         },
         "required": [

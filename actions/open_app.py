@@ -78,7 +78,7 @@ def _normalize(raw: str) -> str:
     return raw  
 
 def _launch_windows(app_name: str) -> bool:
-
+    # 1. Direct executable match in PATH or system
     if shutil.which(app_name) or shutil.which(app_name.split(".")[0]):
         try:
             subprocess.Popen(
@@ -87,28 +87,29 @@ def _launch_windows(app_name: str) -> bool:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            time.sleep(1.5)
+            time.sleep(0.08)
             return True
         except Exception as e:
             print(f"[open_app] subprocess failed: {e}")
 
-    if ":" in app_name:
-        try:
-            subprocess.Popen(f"start {app_name}", shell=True)
-            time.sleep(1.0)
-            return True
-        except Exception:
-            pass
+    # 2. Windows shell 'start' command — handles registered apps, URIs, and shortcuts instantly
+    try:
+        subprocess.Popen(f'start "" "{app_name}"', shell=True)
+        time.sleep(0.08)
+        return True
+    except Exception:
+        pass
 
+    # 3. Fast Start Menu search fallback
     try:
         import pyautogui
-        pyautogui.PAUSE = 0.1
+        pyautogui.PAUSE = 0.01
         pyautogui.press("win")
-        time.sleep(0.7)
-        pyautogui.write(app_name, interval=0.05)
-        time.sleep(0.9)
+        time.sleep(0.15)
+        pyautogui.write(app_name, interval=0.005)
+        time.sleep(0.15)
         pyautogui.press("enter")
-        time.sleep(2.5)
+        time.sleep(0.3)
         return True
     except Exception as e:
         print(f"[open_app] Start Menu search failed: {e}")

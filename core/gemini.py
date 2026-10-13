@@ -79,8 +79,9 @@ else:
 _KEY_FILE = _BASE / "config" / "api_keys.json"
 
 # Ladders, tried left to right. Change a model HERE and the whole app follows.
-FAST = "fast"      # short classification, extraction, one-line decisions
-SMART = "smart"    # reasoning, generation, long documents, images
+FAST   = "fast"    # short classification, extraction, one-line decisions
+SMART  = "smart"   # reasoning, generation, long documents, images
+PRO    = "pro"     # highest-capability tier — Pro models first, SMART fallback
 SEARCH = "search"  # grounded search — REST only, see below
 
 # A rung that means "ask the Live model instead", through a short throwaway
@@ -138,6 +139,20 @@ _LADDERS = {
             "gemini-2.5-flash-lite", "gemini-3.5-flash-lite",
             "gemini-3.1-flash-lite",
             "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-flash-latest"),
+    # PRO — highest capability available. Used by pdf_tutor and any task that
+    # genuinely needs deep reasoning over long documents. Pro models are tried
+    # first; when quota is exhausted the ladder falls through to SMART so the
+    # feature never dies silently. Pro models carry higher latency and tighter
+    # rate limits than Flash, which is exactly why everything else uses FAST or
+    # SMART and this tier is opt-in only.
+    PRO: ("gemini-2.5-pro", "gemini-2.5-pro-preview",
+          "gemini-2.5-pro-exp-03-25",
+          # SMART models as the fallback chain — same order as the SMART ladder
+          LIVE,
+          "gemini-2.5-flash", "gemini-3.5-flash",
+          "gemini-2.5-flash-lite", "gemini-3.5-flash-lite",
+          "gemini-3.1-flash-lite",
+          "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-flash-latest"),
     # Grounded search needs response.candidates[...].grounding_metadata, which a
     # Live turn does not produce. REST only, and it says so rather than silently
     # returning an answer with no sources behind it.
