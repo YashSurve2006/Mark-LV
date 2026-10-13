@@ -337,53 +337,104 @@ python ui.py
 
 ```
 Mark-LV/
-├── main.py                     # Primary engine — Gemini Live loop, audio stream & tool dispatch
-├── ui.py                       # PyQt6 HUD — 3D avatar canvas, waveform visualizer & overlays
-├── setup.py                    # OS-aware automated dependency installer
-├── requirements.txt            # Python dependencies with sys_platform markers
+├── main.py                     # Primary runtime engine — Gemini Live loop, audio stream & tool dispatch
+├── ui.py                       # PyQt6 HUD — 3D avatar canvas, waveform visualizer & dual drawers
+├── setup.py                    # OS-aware automated environment & dependency installer
+├── requirements.txt            # Python dependencies with platform-specific markers
+├── LICENSE                     # Creative Commons Attribution-NonCommercial 4.0 International
+├── readme.md                   # Complete architectural documentation & user manual
+├── .gitignore                  # Security-first ignore rules guarding keys, certs & caches
 │
-├── assets/                     # High-resolution architectural and UI graphic assets
-│   ├── actual_ui_screenshot.png
-│   ├── actual_controls_drawer.png
-│   ├── actual_setup_overlay.png
-│   ├── jarvis_hero_banner.png
-│   ├── jarvis_architecture_diagram.png
-│   └── jarvis_chrome_control.png
+├── assets/                     # High-resolution architectural and live UI assets
+│   ├── actual_ui_screenshot.png       # Live running HUD screenshot (Avatar, Waveform, Telemetry)
+│   ├── actual_controls_drawer.png     # Live running HUD screenshot (Daily Controls Drawer)
+│   ├── actual_setup_overlay.png       # Live running HUD screenshot (System Setup Drawer)
+│   ├── jarvis_hero_banner.png         # Official high-resolution header banner
+│   ├── jarvis_architecture_diagram.png# Full-duplex audio/vision & motor architecture diagram
+│   ├── jarvis_chrome_control.png      # Autonomous Chrome & PDF navigation showcase
+│   └── jarvis_hud_ui.png              # Holographic HUD interface conceptual layout
 │
-├── actions/                    # Bundled Computer Skills (Auto-discovered at launch)
+├── actions/                    # Bundled Computer Skills (Auto-discovered dynamically at boot)
 │   ├── computer_control.py     # Native mouse, keyboard, Chrome tabs & <40ms PDF navigation
-│   ├── computer_settings.py    # Volume, brightness, WiFi, power controls & fast scroll
-│   ├── browser_control.py      # Playwright web automation & session reader
-│   ├── screen_processor.py     # Real-time screen capture & webcam vision
-│   ├── dev_agent.py            # Autonomous software engineering & full-stack app builder
-│   ├── code_helper.py          # Fast script generation, test runner & IDE launcher
-│   ├── smart_automation.py     # Multi-step goal planner & visual feedback executor
-│   ├── file_controller.py      # Local file management & desktop organizer
-│   ├── file_processor.py       # Document reading & summarization
-│   ├── system_monitor.py       # Hardware telemetry (CPU, GPU, RAM, temps)
-│   ├── web_search.py           # Parallel Gemini Grounded + DuckDuckGo search
-│   └── video_player.py         # In-HUD synchronized video playback
+│   ├── computer_settings.py    # Volume, brightness, WiFi, power states & fast page scrolling
+│   ├── browser_control.py      # Playwright browser automation, DOM scraping & web forms
+│   ├── screen_processor.py     # Real-time screen capture (MSS), multi-monitor & vision grounding
+│   ├── dev_agent.py            # Autonomous software engineer (architecture, code, test, deploy)
+│   ├── code_helper.py          # Quick script generation, test runner & IDE workspace launcher
+│   ├── smart_automation.py     # Multi-step reasoning planner with iterative visual loop feedback
+│   ├── file_controller.py      # Local file manager, search & automated desktop/downloads cleanup
+│   ├── file_processor.py       # Document parser & summarizer for PDFs, text & markdown
+│   ├── system_monitor.py       # Live hardware telemetry collector (CPU, GPU, RAM, temps, disk)
+│   ├── github_manager.py       # GitHub REST API integration (repos, PRs, issues, commits)
+│   ├── open_app.py             # Desktop application launcher & cross-platform process focus
+│   ├── desktop.py              # Window geometry management & virtual desktop workspace switcher
+│   ├── web_search.py           # Dual-pipeline search (Gemini Grounding + DuckDuckGo fallback)
+│   ├── youtube_video.py        # YouTube search, streaming playback & media control
+│   ├── video_player.py         # In-HUD synchronized video playback with audio ducking
+│   ├── weather_report.py       # Real-time weather forecasts, meteorological data & alerts
+│   ├── flight_finder.py        # Live flight tracker, route search & arrival status
+│   ├── reminder.py             # Natural language alarm scheduler & desktop notifications
+│   ├── send_message.py         # Outbound messaging dispatcher (webhooks, email, WhatsApp)
+│   ├── workflow.py             # Multi-command chained workflows & custom macro sequences
+│   ├── proactive.py            # Ambient proactive intelligence & contextual user prompts
+│   ├── game_updater.py         # Game library update monitor & patch status verifier
+│   └── background_monitor.py   # Asynchronous background observer for clipboard & system health
 │
-├── core/                       # Core Runtime Subsystems
-│   ├── gemini.py               # 9-tier Model Ladder with intelligent timeout & cooldowns
-│   ├── prompt.txt              # System prompt & behavioral grounding rules
-│   ├── avatar.py               # 3D Avatar QPainter rendering & lighting engine
-│   ├── avatar_mesh.py          # 3D Head vertex matrix & face model rig
-│   ├── face_model.obj          # MediaPipe canonical 468-vertex 3D face geometry
-│   ├── viseme.py               # Phonetic transcript to ~50Hz mouth viseme mapper
-│   ├── echo.py                 # Self-echo cancellation & audio tail suppression
-│   ├── undo.py                 # Universal action rollback journal
-│   ├── confirm.py              # Hardware confirmation token gate
-│   └── audio_devices.py        # Measured audio device selector & latency prober
+├── core/                       # Core Runtime Subsystems & AI Engines
+│   ├── gemini.py               # 9-tier Model Ladder with intelligent timeout & quota backoff
+│   ├── llm_client.py           # Universal LLM abstraction interface & REST fallback handler
+│   ├── coder_engine.py         # Deep coding LLM pipeline for software generation & repairs
+│   ├── prompt.txt              # System prompt, personality grounding & motor execution schema
+│   ├── action_loader.py        # Dynamic auto-discovery & schema reflection for actions/
+│   ├── plugin_loader.py        # Modular lifecycle manager for user-contributed plugins
+│   ├── avatar.py               # Pure-software 3D wireframe avatar renderer powered by QPainter
+│   ├── avatar_mesh.py          # 3D head geometry mathematics, projection & rotational matrices
+│   ├── face_model.obj          # Canonical MediaPipe 468-vertex 3D facial topology geometry
+│   ├── viseme.py               # Phonetic transcript analyzer producing ~50Hz mouth visemes
+│   ├── echo.py                 # Real-time acoustic self-echo cancellation & bleed suppression
+│   ├── wake_word.py            # Offline lightweight wake-word detector ("Hey Jarvis")
+│   ├── hotkey.py               # Cross-platform global keyboard hook (Ctrl+Space push-to-talk)
+│   ├── undo.py                 # Universal undo journal engine to revert files & settings
+│   ├── confirm.py              # Hardware confirmation token gate protecting high-risk actions
+│   ├── audio_devices.py        # Latency prober & device enumerator (DirectSound / MME)
+│   ├── installer.py            # Runtime dependency verifier & dynamic module helper
+│   ├── stt.py                  # Offline / online speech-to-text transcription fallback
+│   └── tts.py                  # Text-to-speech synthesis & audio output playback stream
 │
-├── memory/                     # Memory & State
-│   ├── memory_manager.py       # Long-term recallable fact store manager
-│   ├── config_manager.py       # Safe JSON configuration reader/writer
-│   └── long_term.json          # Persistent user facts & project memory
+├── dashboard/                  # Mobile & Web Remote Companion Subsystem
+│   ├── server.py               # Local HTTPS/WebSocket server with self-signed TLS & token auth
+│   └── static/                 # Companion web interface frontend assets
+│       ├── app.html            # Single-page responsive mobile control HUD & remote microphone
+│       ├── login.html          # Secure PIN / password authentication gate
+│       └── crypto-js.min.js    # Client-side cryptographic hashing & secure token verification
 │
-└── plugins/                    # Drop-in Plugin Architecture
-    └── _template.py            # Single-file template for adding custom skills
+├── memory/                     # Memory, State & Configuration Management
+│   ├── memory_manager.py       # Long-term episodic memory engine with keyword indexing
+│   ├── config_manager.py       # Thread-safe atomic JSON configuration reader/writer
+│   └── long_term.json          # Persistent recallable facts, preferences & project history
+│
+├── plugins/                    # Drop-in Extensible Plugin Ecosystem
+│   ├── _template.py            # Boilerplate starter template for custom user plugins
+│   ├── doc_writer.py           # Technical documentation, LaTeX & Markdown generator plugin
+│   └── pdf_tutor.py            # Interactive PDF reading, educational analyzer & quiz tutor
+│
+└── config/                     # Configuration Templates & Application Resources
+    ├── api_keys.json.example   # Clean template for API keys (Gemini, GitHub, etc.)
+    ├── jarvis.ico              # Native application icon
+    └── certs/                  # Auto-generated self-signed TLS certificates for local HTTPS
 ```
+
+### Subsystem Breakdown
+
+| Subsystem | Primary Responsibility | Key Files |
+|:---|:---|:---|
+| **I/O & Speech Engine** | Full-duplex 16kHz audio capture, 24kHz playback, ~50Hz viseme calculation, self-echo cancellation. | `core/audio_devices.py`, `core/viseme.py`, `core/echo.py`, `core/wake_word.py` |
+| **Cognitive Ladder** | 9-tier model fallback cascading across Gemini models with quota cooldowns and auto-resumption. | `core/gemini.py`, `core/llm_client.py`, `core/prompt.txt` |
+| **3D Holographic HUD** | Pure-software 3D facial mesh rendering with zero GPU overhead, audio oscilloscope, telemetry gauges. | `ui.py`, `core/avatar.py`, `core/avatar_mesh.py`, `core/face_model.obj` |
+| **Motor & Browser Engine** | Sub-50ms native mouse, keyboard, active Chrome tab interaction, instant PDF jumping, settings control. | `actions/computer_control.py`, `actions/computer_settings.py`, `actions/browser_control.py` |
+| **Autonomous Dev Agent** | Multi-file codebase synthesis, unit test execution, and IDE workspace launching from voice commands. | `actions/dev_agent.py`, `actions/code_helper.py`, `core/coder_engine.py` |
+| **Safety & Memory** | Universal undo journal, hardware confirmation gates, persistent local recallable memory. | `core/undo.py`, `core/confirm.py`, `memory/memory_manager.py` |
+| **Remote Companion** | Encrypted mobile web dashboard accessible via QR code with self-signed TLS encryption. | `dashboard/server.py`, `dashboard/static/app.html` |
 
 ---
 
