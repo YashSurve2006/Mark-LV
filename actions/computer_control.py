@@ -443,12 +443,20 @@ def _drag(x1: int | float, y1: int | float, x2: int | float, y2: int | float, du
 _verified_drag = _drag
 
 
-def _clipboard_get() -> str:
+def _clipboard_get(player=None) -> str:
+    try:
+        from actions.send_message import _get_clipboard_text
+        val = _get_clipboard_text(player=player)
+        if val:
+            return val
+    except Exception:
+        pass
     if _PYPERCLIP:
-        return pyperclip.paste()
-    _hotkey("ctrl", "c")
-    time.sleep(0.2)
-    return "(copied — pyperclip unavailable for read)"
+        try:
+            return pyperclip.paste()
+        except Exception:
+            pass
+    return ""
 
 
 def _clipboard_paste(text: str) -> str:
@@ -1968,10 +1976,10 @@ def computer_control(
                 amount=int(params.get("amount", 3)),
             )
 
-        if action == "copy":
-            return _clipboard_get()
+        if action in ("copy", "get_clipboard", "read_clipboard", "clipboard_get"):
+            return _clipboard_get(player=player)
 
-        if action == "paste":
+        if action in ("paste", "set_clipboard", "write_clipboard"):
             return _clipboard_paste(params.get("text", ""))
 
         if action == "screenshot":
@@ -2208,7 +2216,7 @@ TOOL = {
         "Advanced computer control and running Chrome tab automation. "
         "DESKTOP & WINDOWS: list_windows, get_active_window, focus_window, minimize_window, "
         "maximize_window, close_window, show_desktop, lock_screen, open_settings, open_file_explorer, "
-        "open_task_manager, open_run_dialog, open_clipboard_history, open_action_center, take_snip, "
+        "open_task_manager, open_run_dialog, open_clipboard_history, get_clipboard, read_clipboard, open_action_center, take_snip, "
         "get_system_info, mouse_position, click, double_click, triple_click, middle_click, mouse_down, "
         "mouse_up, move, drag, scroll, hotkey, press, key_down, key_up, copy, paste, screenshot, "
         "clear_field, volume_up, volume_down, volume_mute, play_pause. "
@@ -2229,7 +2237,7 @@ TOOL = {
                 "description": (
                     "type | smart_type | click | double_click | triple_click | middle_click | right_click | "
                     "mouse_down | mouse_up | mouse_position | move | drag | scroll | hotkey | press | "
-                    "key_down | key_up | copy | paste | screenshot | wait | clear_field | "
+                    "key_down | key_up | copy | paste | get_clipboard | read_clipboard | screenshot | wait | clear_field | "
                     "list_windows | get_active_window | focus_window | minimize_window | maximize_window | close_window | show_desktop | "
                     "lock_screen | open_settings | open_file_explorer | open_task_manager | open_run_dialog | open_clipboard_history | open_action_center | take_snip | get_system_info | "
                     "volume_up | volume_down | volume_mute | play_pause | volume_control | "

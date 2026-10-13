@@ -66,6 +66,218 @@ _MEMORY_FILE = _BASE / "memory" / "long_term.json"
 _CONFIG_FILE = _BASE / "config" / "api_keys.json"
 
 
+# ── Clipboard Resolution Utilities ───────────────────────────────────────────
+
+def _get_clipboard_text(player=None) -> str:
+    """Retrieve text safely from the system clipboard with multi-tier fallbacks."""
+    # Tier 1: In-process UI / Qt player cache
+    if player and hasattr(player, "get_clipboard_text"):
+        try:
+            val = player.get_clipboard_text()
+            if val and str(val).strip():
+                return str(val).strip()
+        except Exception:
+            pass
+
+    try:
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            val = app.clipboard().text()
+            if val and str(val).strip():
+                return str(val).strip()
+    except Exception:
+        pass
+
+    # Tier 2: ctypes user32 OpenClipboard with retry loop & format handling (CF_UNICODETEXT, CF_HDROP, CF_TEXT)
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            kernel32 = ctypes.windll.kernel32
+            shell32 = ctypes.windll.shell32
+
+            CF_TEXT = 1
+            CF_UNICODETEXT = 13
+            CF_HDROP = 15
+
+            user32.OpenClipboard.argtypes = [wintypes.HWND]
+            user32.OpenClipboard.restype = wintypes.BOOL
+            user32.CloseClipboard.restype = wintypes.BOOL
+            user32.GetClipboardData.argtypes = [wintypes.UINT]
+            user32.GetClipboardData.restype = wintypes.HANDLE
+            user32.IsClipboardFormatAvailable.argtypes = [wintypes.UINT]
+            user32.IsClipboardFormatAvailable.restype = wintypes.BOOL
+            kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+            kernel32.GlobalLock.restype = wintypes.LPVOID
+            kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+            kernel32.GlobalUnlock.restype = wintypes.BOOL
+
+            opened = False
+            for _ in range(8):
+                if user32.OpenClipboard(None):
+                    opened = True
+                    break
+                time.sleep(0.04)
+
+            if opened:
+                try:
+                    if user32.IsClipboardFormatAvailable(CF_UNICODETEXT):
+                        h = user32.GetClipboardData(CF_UNICODETEXT)
+                        if h:
+                            ptr = kernel32.GlobalLock(h)
+                            if ptr:
+                                val = ctypes.c_wchar_p(ptr).value
+                                kernel32.GlobalUnlock(h)
+                                if val and str(val).strip():
+                                    return str(val).strip()
+
+                    if user32.IsClipboardFormatAvailable(CF_HDROP):
+                        h = user32.GetClipboardData(CF_HDROP)
+                        if h:
+                            shell32.DragQueryFileW.argtypes = [wintypes.HANDLE, wintypes.UINT, wintypes.LPWSTR, wintypes.UINT]
+                            shell32.DragQueryFileW.restype = wintypes.UINT
+                            num_files = shell32.DragQueryFileW(h, 0xFFFFFFFF, None, 0)
+                            file_paths = []
+                            buf = ctypes.create_unicode_buffer(1024)
+                            for i in range(num_files):
+                                shell32.DragQueryFileW(h, i, buf, 1024)
+                                file_paths.append(buf.value)
+                            if file_paths:
+                                return "\n".join(file_paths)
+
+                    if user32.IsClipboardFormatAvailable(CF_TEXT):
+                        h = user32.GetClipboardData(CF_TEXT)
+                        if h:
+                            ptr = kernel32.GlobalLock(h)
+                            if ptr:
+                                val = ctypes.c_char_p(ptr).value
+                                kernel32.GlobalUnlock(h)
+                                if val:
+                                    decoded = val.decode("utf-8", errors="replace")
+                                    if decoded.strip():
+                                        return decoded.strip()
+                finally:
+                    user32.CloseClipboard()
+        except Exception:
+            pass
+
+    # Tier 3: win32clipboard with retry loop
+    if sys.platform == "win32":
+        try:
+            import win32clipboard
+            import win32con
+            opened_win32 = False
+            for _ in range(6):
+                try:
+                    win32clipboard.OpenClipboard()
+                    opened_win32 = True
+                    break
+                except Exception:
+                    time.sleep(0.04)
+
+            if opened_win32:
+                try:
+                    if win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
+                        val = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
+                        if val and str(val).strip():
+                            return str(val).strip()
+                    elif win32clipboard.IsClipboardFormatAvailable(win32con.CF_TEXT):
+                        val = win32clipboard.GetClipboardData(win32con.CF_TEXT)
+                        if val:
+                            txt = val.decode("utf-8", errors="replace") if isinstance(val, bytes) else str(val)
+                            if txt.strip():
+                                return txt.strip()
+                finally:
+                    win32clipboard.CloseClipboard()
+        except Exception:
+            pass
+
+    # Tier 4: pyperclip
+    if _PYPERCLIP:
+        try:
+            val = pyperclip.paste()
+            if val and str(val).strip():
+                return str(val).strip()
+        except Exception:
+            pass
+
+    # Tier 5: PowerShell STA Get-Clipboard fallback
+    if sys.platform == "win32":
+        try:
+            res = subprocess.run(
+                ["powershell", "-Sta", "-NoProfile", "-NonInteractive", "-Command", "Get-Clipboard"],
+                capture_output=True,
+                text=True,
+                timeout=2.0,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            )
+            if res.returncode == 0 and res.stdout and res.stdout.strip():
+                return res.stdout.strip()
+        except Exception:
+            pass
+
+    return ""
+
+
+_CLIPBOARD_TOKEN_RE = re.compile(
+    r'(\[|\{|\<|%)?\s*(?:PASTE_)?CLIPBOARD\s*(\]|\}|\>|%)?|\[\s*PASTE\s*\]',
+    re.IGNORECASE
+)
+
+_STANDALONE_CLIPBOARD_WORDS = {
+    "[paste_clipboard]", "paste_clipboard", "[clipboard]", "clipboard",
+    "[paste]", "{clipboard}", "<clipboard>", "%clipboard%",
+    "[clipboard_content]", "[my_clipboard]", "paste clipboard",
+    "from clipboard", "my clipboard", "the clipboard", "clipboard content"
+}
+
+
+def _resolve_clipboard_content(message_text: str, from_clipboard: bool = False, player=None) -> tuple[str, bool, str]:
+    """
+    Detects if the message is or contains a clipboard macro/placeholder
+    (e.g. [PASTE_CLIPBOARD], {CLIPBOARD}, 'clipboard') or if from_clipboard is True,
+    and replaces it with the live content from the user's OS clipboard.
+
+    Returns:
+        (resolved_text, was_requested, error_msg_if_empty)
+    """
+    raw = (message_text or "").strip()
+    is_clip_requested = bool(from_clipboard)
+
+    if raw.lower() in _STANDALONE_CLIPBOARD_WORDS or not raw:
+        if raw.lower() in _STANDALONE_CLIPBOARD_WORDS or from_clipboard:
+            is_clip_requested = True
+    elif _CLIPBOARD_TOKEN_RE.search(raw):
+        is_clip_requested = True
+
+    if not is_clip_requested:
+        return raw, False, ""
+
+    clip_text = _get_clipboard_text(player=player)
+    if not clip_text:
+        return "", True, (
+            "Your clipboard is currently empty. Please copy the text, link, or "
+            "content you want to share first, then ask again."
+        )
+
+    # Standalone replacement
+    if raw.lower() in _STANDALONE_CLIPBOARD_WORDS or not raw or raw.lower() == "[paste_clipboard]":
+        return clip_text, True, ""
+
+    # Embedded replacement (e.g. "Check this out: [PASTE_CLIPBOARD]")
+    replaced = _CLIPBOARD_TOKEN_RE.sub(clip_text, raw)
+    if replaced != raw:
+        return replaced, True, ""
+
+    # from_clipboard was True and raw text was provided as caption/prefix
+    if from_clipboard and raw:
+        return f"{raw}\n{clip_text}", True, ""
+
+    return clip_text, True, ""
+
+
 # ── Contact & Phone Number Intelligence ───────────────────────────────────────
 
 def _load_memory() -> dict:
@@ -294,6 +506,13 @@ class WhatsAppProtocolTransport:
         message: str,
         mode: str = "send",
     ) -> Tuple[bool, str]:
+        # Defense-in-depth: resolve any unresolved clipboard placeholders
+        resolved_msg, was_clip, err = _resolve_clipboard_content(message)
+        if was_clip:
+            if err:
+                return (False, err)
+            message = resolved_msg
+
         encoded_text = urllib.parse.quote(message)
         if phone:
             uri = f"whatsapp://send?phone={phone}&text={encoded_text}"
@@ -339,6 +558,13 @@ class WhatsAppDesktopTransport:
     ) -> Tuple[bool, str]:
         if not _PYAUTOGUI:
             return (False, "PyAutoGUI is not available for desktop UI automation.")
+
+        # Defense-in-depth: resolve any unresolved clipboard placeholders
+        resolved_msg, was_clip, err = _resolve_clipboard_content(message)
+        if was_clip:
+            if err:
+                return (False, err)
+            message = resolved_msg
 
         # Ensure WhatsApp Desktop window is active
         if not focus_whatsapp_window(timeout_sec=2.0):
@@ -447,6 +673,8 @@ class WhatsAppDriver:
         message: str,
         mode: str = "send",
         phone_override: Optional[str] = None,
+        from_clipboard: bool = False,
+        player=None,
     ) -> Tuple[bool, str]:
         """
         Unified dispatch:
@@ -454,11 +682,18 @@ class WhatsAppDriver:
         - If contact name with no phone, uses Desktop UI automation.
         - Falls back gracefully to WhatsApp Web.
         """
+        # Resolve clipboard placeholders or explicit from_clipboard requests
+        resolved_msg, was_clip, err = _resolve_clipboard_content(message, from_clipboard=from_clipboard, player=player)
+        if was_clip:
+            if err:
+                return (False, err)
+            message = resolved_msg
+
         receiver_name, resolved_phone = resolve_contact(receiver)
         target_phone = clean_phone_number(phone_override) if phone_override else resolved_phone
 
-        # Tier 1: Protocol DeepLink if phone number is known
-        if target_phone:
+        # Tier 1: Protocol DeepLink if phone number is known and URI is within safe length (< 1500 chars)
+        if target_phone and len(message) < 1500:
             print(f"[WhatsApp] Routing via Protocol DeepLink to +{target_phone} (mode={mode})")
             success, info = self.protocol_transport.send_via_protocol(
                 phone=target_phone,
@@ -469,7 +704,7 @@ class WhatsAppDriver:
                 action_word = "sent to" if mode == "send" else "drafted for"
                 return (True, f"Message {action_word} {receiver_name} (+{target_phone}) via WhatsApp.")
 
-        # Tier 2: Desktop UI Automation by contact name
+        # Tier 2: Desktop UI Automation by contact name (or long message payload)
         print(f"[WhatsApp] Routing via Desktop UI Automation for '{receiver_name}' (mode={mode})")
         success, info = self.desktop_transport.send_via_desktop_ui(
             receiver_name=receiver_name,

@@ -20,7 +20,8 @@ PLUGIN = {
         "Dedicated WhatsApp management tool. Composes, drafts, and sends WhatsApp messages, "
         "opens conversations with contacts or phone numbers, saves contacts to memory, "
         "and checks WhatsApp connectivity. Supports 'action': 'send', 'draft', 'open_chat', "
-        "'add_contact', or 'status'."
+        "'add_contact', or 'status'. To send or draft the user's copied clipboard content, "
+        "pass message='[PASTE_CLIPBOARD]' or from_clipboard=True."
     ),
     "parameters": {
         "type": "OBJECT",
@@ -36,7 +37,7 @@ PLUGIN = {
             },
             "message": {
                 "type": "STRING",
-                "description": "Message text to compose and send/draft"
+                "description": "Message text to compose and send/draft. Pass '[PASTE_CLIPBOARD]' to send user's clipboard content"
             },
             "phone_number": {
                 "type": "STRING",
@@ -45,6 +46,10 @@ PLUGIN = {
             "relationship": {
                 "type": "STRING",
                 "description": "Optional relationship label when adding contact (e.g. 'mom', 'brother', 'manager')"
+            },
+            "from_clipboard": {
+                "type": "BOOLEAN",
+                "description": "Set to true if sending or drafting the user's current clipboard content"
             }
         },
         "required": ["action"]
@@ -91,6 +96,7 @@ def run(parameters: dict, player=None, session_memory=None) -> str:
     message = params.get("message", "").strip()
     phone_number = params.get("phone_number", "").strip()
     relationship = params.get("relationship", "").strip()
+    from_clipboard = bool(params.get("from_clipboard", False))
 
     driver, why = wa.get()
     if driver is None:
@@ -153,6 +159,14 @@ def run(parameters: dict, player=None, session_memory=None) -> str:
     if action in ("send", "draft"):
         if not receiver:
             return "Please specify who you would like to send the message to."
+
+        # Intercept and resolve clipboard content
+        resolved_msg, was_clip, clip_err = wa._resolve_clipboard_content(message, from_clipboard=from_clipboard, player=player)
+        if was_clip:
+            if clip_err:
+                return clip_err
+            message = resolved_msg
+
         if not message:
             return "Please specify the message you would like to send."
 
@@ -161,6 +175,8 @@ def run(parameters: dict, player=None, session_memory=None) -> str:
             message=message,
             mode=action,
             phone_override=phone_number or None,
+            from_clipboard=from_clipboard,
+            player=player,
         )
 
         if player:

@@ -3413,6 +3413,11 @@ class MainWindow(QMainWindow):
         # Clipboard panel (child of central widget, bottom-center)
         self._clipboard_panel = ClipboardPanel(self.centralWidget())
         self._clipboard_panel.action_requested.connect(self._on_clipboard_action)
+        self._latest_clipboard_text = ""
+        try:
+            self._latest_clipboard_text = QApplication.clipboard().text().strip()
+        except Exception:
+            pass
         QApplication.clipboard().dataChanged.connect(self._on_clipboard_changed)
 
         self._overlay: SetupOverlay | None = None
@@ -5788,11 +5793,35 @@ class MainWindow(QMainWindow):
 
     def _on_clipboard_changed(self):
         try:
-            text = QApplication.clipboard().text().strip()
-            if len(text) >= 10:
-                self._clipboard_sig.emit(text)
+            mime = QApplication.clipboard().mimeData()
+            text = ""
+            if mime.hasUrls():
+                files = [u.toLocalFile() for u in mime.urls() if u.isLocalFile()]
+                if files:
+                    text = "\n".join(files)
+            if not text and mime.hasText():
+                text = mime.text().strip()
+
+            if text:
+                self._latest_clipboard_text = text
+                if len(text) >= 10:
+                    self._clipboard_sig.emit(text)
         except Exception:
             pass
+
+    def get_clipboard_text(self) -> str:
+        """Thread-safe retrieval of the most recently copied text or file paths from clipboard."""
+        val = getattr(self, "_latest_clipboard_text", "")
+        if val and val.strip():
+            return val.strip()
+        try:
+            t = QApplication.clipboard().text()
+            if t and t.strip():
+                self._latest_clipboard_text = t.strip()
+                return t.strip()
+        except Exception:
+            pass
+        return ""
 
     def _show_clipboard_panel(self, text: str):
         self._clipboard_panel.show_clipboard(text)
@@ -6040,6 +6069,13 @@ class JarvisUI:
     @wake_get_state.setter
     def wake_get_state(self, cb):
         self._win.wake_get_state = cb
+
+    def get_clipboard_text(self) -> str:
+        """Returns the most recently copied text or file paths from the OS clipboard."""
+        try:
+            return self._win.get_clipboard_text()
+        except Exception:
+            return ""
 
     def set_audio_level(self, level: float) -> None:
         """Thread-safe: feed a 0.0–1.0 live audio level to the HUD waveform.

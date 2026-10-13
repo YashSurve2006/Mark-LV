@@ -203,7 +203,7 @@ Routing rules for computer and browser control:
 
 2. ADVANCED OS & WINDOW CONTROLS:
    - System status: get_system_info (battery, CPU, RAM, disk usage, active window).
-   - Windows shortcuts: lock_screen, open_settings, open_file_explorer (path), open_task_manager, open_run_dialog, open_clipboard_history, open_action_center, take_snip.
+   - Windows shortcuts: lock_screen, open_settings, open_file_explorer (path), open_task_manager, open_run_dialog, open_clipboard_history, get_clipboard (read clipboard text), open_action_center, take_snip.
    - Window management: list_windows, get_active_window, focus_window (title), minimize_window (title), maximize_window (title), close_window (title), show_desktop.
    - Mouse & pointer: click, double_click, triple_click (select line), middle_click (open tab/paste), mouse_down, mouse_up, mouse_position, move, drag, scroll.
    - Keyboard & shortcuts: hotkey (e.g. 'ctrl+c', 'win+d', 'alt+tab'), press, key_down, key_up, clear_field.
@@ -232,6 +232,8 @@ Routing rules for computer and browser control:
      → Call send_message with receiver (contact name, relationship like 'Mom', or phone number), message_text, platform='whatsapp', and mode='send'. It operates directly in the WhatsApp Desktop app.
    - When the user asks to draft or stage a message (e.g. "Draft a WhatsApp message to Alex"):
      → Call send_message with mode='draft' so the message is composed into the WhatsApp Desktop chat compose box without pressing send, allowing the user to review.
+   - When the user asks to send or share their clipboard / copied text / copied link (e.g. "Send what's on my clipboard to Mom on WhatsApp", "WhatsApp my clipboard to Alex", "Send copied link to Dad"):
+     → Call send_message with receiver, message_text='[PASTE_CLIPBOARD]', from_clipboard=True, platform='whatsapp', and mode='send' (or mode='draft'). The messaging system automatically retrieves the live clipboard content and sends the real copied text or URL. Never output raw placeholder text to the chat.
    - For dedicated WhatsApp tasks (opening conversations, checking connection, or saving contacts):
      → Call whatsapp with action='open_chat'|'send'|'draft'|'add_contact'|'status'.
 
