@@ -56,6 +56,14 @@ PLUGIN_SETTINGS = {
     "title": "WhatsApp Messenger",
     "fields": [
         {
+            "key": "preferred_client",
+            "label": "Preferred Client",
+            "type": "select",
+            "options": ["desktop", "web"],
+            "default": "desktop",
+            "help": "Target WhatsApp Desktop app on Windows by default.",
+        },
+        {
             "key": "default_country_code",
             "label": "Default Country Code",
             "type": "text",

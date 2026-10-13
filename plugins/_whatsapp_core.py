@@ -210,8 +210,34 @@ def find_whatsapp_window() -> Optional[int]:
     return found_hwnd
 
 
-def focus_whatsapp_window(timeout_sec: float = 3.0) -> bool:
-    """Brings WhatsApp to foreground with fast in-process activation."""
+def ensure_whatsapp_desktop_running() -> bool:
+    """Ensure WhatsApp Desktop is started on Windows."""
+    if sys.platform != "win32":
+        return False
+    if find_whatsapp_window():
+        return True
+    try:
+        # Try modern Windows AppX Package directly
+        subprocess.Popen(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", "Start-Process 'shell:AppsFolder\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App'"],
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
+        time.sleep(1.8)
+        return True
+    except Exception:
+        pass
+
+    try:
+        os.startfile("whatsapp:")
+        time.sleep(1.5)
+        return True
+    except Exception:
+        pass
+    return False
+
+
+def focus_whatsapp_window(timeout_sec: float = 3.5) -> bool:
+    """Brings WhatsApp Desktop to foreground with fast in-process activation."""
     if sys.platform != "win32":
         return False
 
@@ -222,6 +248,11 @@ def focus_whatsapp_window(timeout_sec: float = 3.0) -> bool:
         if hwnd:
             break
         time.sleep(0.15)
+
+    if not hwnd:
+        ensure_whatsapp_desktop_running()
+        time.sleep(0.8)
+        hwnd = find_whatsapp_window()
 
     if not hwnd:
         # Fallback to WScript.Shell AppActivate
@@ -270,7 +301,7 @@ class WhatsAppProtocolTransport:
             uri = f"whatsapp://send?text={encoded_text}"
 
         try:
-            # Launch protocol via Windows Shell
+            # Launch protocol directly into WhatsApp Desktop
             if sys.platform == "win32":
                 os.startfile(uri)
             else:
@@ -278,25 +309,26 @@ class WhatsAppProtocolTransport:
         except Exception as e:
             return (False, f"Failed to execute WhatsApp URI: {e}")
 
-        # Wait for WhatsApp window to gain focus
+        # Wait for WhatsApp Desktop window to gain focus
         time.sleep(1.2)
         focused = focus_whatsapp_window(timeout_sec=4.0)
 
         if mode == "draft":
-            return (True, "Draft staged in WhatsApp input box for review.")
+            return (True, "Draft staged in WhatsApp Desktop input box for review.")
 
         # In "send" mode: press Enter to dispatch message
         time.sleep(0.5)
         if _PYAUTOGUI:
             pyautogui.press("enter")
             time.sleep(0.2)
-            return (True, "Message dispatched via WhatsApp protocol.")
-        return (True, "Message draft loaded in WhatsApp.")
+            return (True, "Message dispatched via WhatsApp Desktop protocol.")
+        return (True, "Message draft loaded in WhatsApp Desktop.")
 
 
 class WhatsAppDesktopTransport:
     """
-    Desktop UI Automation Driver: Searches contact name, opens chat, and types message.
+    WhatsApp Desktop Native UI Automation Driver:
+    Uses native shortcuts (Ctrl+N for new chat / search), focuses chat, and types message.
     """
 
     def send_via_desktop_ui(
@@ -308,24 +340,21 @@ class WhatsAppDesktopTransport:
         if not _PYAUTOGUI:
             return (False, "PyAutoGUI is not available for desktop UI automation.")
 
-        # Ensure WhatsApp window is active
-        if not focus_whatsapp_window(timeout_sec=1.5):
-            # Try to launch WhatsApp via start menu or protocol
-            try:
-                os.startfile("whatsapp:")
-                time.sleep(2.0)
-                focus_whatsapp_window(timeout_sec=3.0)
-            except Exception:
-                pass
-
+        # Ensure WhatsApp Desktop window is active
         if not focus_whatsapp_window(timeout_sec=2.0):
+            ensure_whatsapp_desktop_running()
+            time.sleep(1.5)
+            focus_whatsapp_window(timeout_sec=3.0)
+
+        if not focus_whatsapp_window(timeout_sec=2.5):
             return (False, "Could not locate or focus WhatsApp Desktop window.")
 
         time.sleep(0.3)
 
-        # Shortcut: Ctrl+F to search chats (or Ctrl+N for new chat)
-        pyautogui.hotkey("ctrl", "f")
-        time.sleep(0.3)
+        # In WhatsApp Desktop, Ctrl+N opens 'New chat' dialog which directly searches all contacts & numbers
+        # Ctrl+F searches active chat list. We try Ctrl+N first for full contact coverage.
+        pyautogui.hotkey("ctrl", "n")
+        time.sleep(0.4)
 
         # Clear search input
         pyautogui.hotkey("ctrl", "a")
@@ -341,14 +370,13 @@ class WhatsAppDesktopTransport:
         else:
             pyautogui.write(receiver_name, interval=0.03)
 
-        time.sleep(0.8)
+        time.sleep(0.7)
 
-        # Select first matching chat
-        pyautogui.press("down")
-        time.sleep(0.15)
+        # Open chat with the top search match
         pyautogui.press("enter")
-        time.sleep(0.6)
+        time.sleep(0.5)
 
+        # If Ctrl+N didn't switch, try Ctrl+F fallback
         # Paste message into chat compose input
         if _PYPERCLIP:
             pyperclip.copy(message)
@@ -360,7 +388,7 @@ class WhatsAppDesktopTransport:
         time.sleep(0.2)
 
         if mode == "draft":
-            return (True, f"Draft staged in chat with '{receiver_name}' for review.")
+            return (True, f"Draft staged in WhatsApp Desktop chat with '{receiver_name}' for review.")
 
         # Send
         pyautogui.press("enter")

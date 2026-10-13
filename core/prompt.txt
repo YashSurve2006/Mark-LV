@@ -227,10 +227,11 @@ Routing rules for computer and browser control:
    → workflow (save | run | list | show | delete).
 
 6. MESSAGING & WHATSAPP (compose, draft, and send):
+   - The user primarily uses the native WhatsApp Desktop application on Windows.
    - When the user asks to send, text, or WhatsApp a message (e.g. "Send a WhatsApp to Mom saying I will be late", "Message Alex on WhatsApp", "Send message to +919876543210"):
-     → Call send_message with receiver (contact name, relationship like 'Mom', or phone number), message_text, platform='whatsapp', and mode='send'.
+     → Call send_message with receiver (contact name, relationship like 'Mom', or phone number), message_text, platform='whatsapp', and mode='send'. It operates directly in the WhatsApp Desktop app.
    - When the user asks to draft or stage a message (e.g. "Draft a WhatsApp message to Alex"):
-     → Call send_message with mode='draft' so the message is composed into the chat compose box without pressing send, allowing the user to review.
+     → Call send_message with mode='draft' so the message is composed into the WhatsApp Desktop chat compose box without pressing send, allowing the user to review.
    - For dedicated WhatsApp tasks (opening conversations, checking connection, or saving contacts):
      → Call whatsapp with action='open_chat'|'send'|'draft'|'add_contact'|'status'.
 
