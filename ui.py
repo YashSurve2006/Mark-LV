@@ -5791,7 +5791,13 @@ class MainWindow(QMainWindow):
 
     # ── Clipboard intelligence ───────────────────────────────────────────────────
 
+    def set_internal_clipboard_operation(self, active: bool) -> None:
+        """Flag whether an automated internal paste/copy is occurring to avoid polluting cache."""
+        self._internal_clipboard_operation = bool(active)
+
     def _on_clipboard_changed(self):
+        if getattr(self, "_internal_clipboard_operation", False):
+            return
         try:
             mime = QApplication.clipboard().mimeData()
             text = ""
@@ -5810,17 +5816,31 @@ class MainWindow(QMainWindow):
             pass
 
     def get_clipboard_text(self) -> str:
-        """Thread-safe retrieval of the most recently copied text or file paths from clipboard."""
+        """Thread-safe retrieval of the live or most recently copied text/file paths from clipboard."""
+        # Always prioritize live OS/Qt clipboard text to avoid stale cache
+        try:
+            app = QApplication.instance()
+            if app:
+                mime = app.clipboard().mimeData()
+                if mime:
+                    if mime.hasUrls():
+                        files = [u.toLocalFile() for u in mime.urls() if u.isLocalFile()]
+                        if files:
+                            txt = "\n".join(files).strip()
+                            if txt:
+                                self._latest_clipboard_text = txt
+                                return txt
+                    if mime.hasText():
+                        txt = mime.text().strip()
+                        if txt:
+                            self._latest_clipboard_text = txt
+                            return txt
+        except Exception:
+            pass
+
         val = getattr(self, "_latest_clipboard_text", "")
         if val and val.strip():
             return val.strip()
-        try:
-            t = QApplication.clipboard().text()
-            if t and t.strip():
-                self._latest_clipboard_text = t.strip()
-                return t.strip()
-        except Exception:
-            pass
         return ""
 
     def _show_clipboard_panel(self, text: str):
@@ -6076,6 +6096,13 @@ class JarvisUI:
             return self._win.get_clipboard_text()
         except Exception:
             return ""
+
+    def set_internal_clipboard_operation(self, active: bool) -> None:
+        """Flag whether an automated internal paste/copy is occurring to avoid polluting cache."""
+        try:
+            self._win.set_internal_clipboard_operation(active)
+        except Exception:
+            pass
 
     def set_audio_level(self, level: float) -> None:
         """Thread-safe: feed a 0.0–1.0 live audio level to the HUD waveform.

@@ -147,6 +147,7 @@ def run(parameters: dict, player=None, session_memory=None) -> str:
             message="",
             mode="draft",
             phone_override=phone_number or None,
+            player=player,
         )
         if player:
             try:
@@ -160,6 +161,19 @@ def run(parameters: dict, player=None, session_memory=None) -> str:
         if not receiver:
             return "Please specify who you would like to send the message to."
 
+        # If message was omitted, empty, or echoed the receiver name
+        if wa._is_echoed_receiver_or_empty(message, receiver):
+            clip = wa._get_clipboard_text(player=player)
+            if clip and not wa._is_echoed_receiver_or_empty(clip, receiver):
+                message = clip
+                from_clipboard = True
+                print(f"[WhatsApp] [clipboard] Receiver '{receiver}' had no distinct message body; using live clipboard content ({len(clip)} chars).")
+            else:
+                if action == "draft":
+                    message = ""
+                else:
+                    return f"What message would you like to send to {receiver}? (Your clipboard is currently empty)."
+
         # Intercept and resolve clipboard content
         resolved_msg, was_clip, clip_err = wa._resolve_clipboard_content(message, from_clipboard=from_clipboard, player=player)
         if was_clip:
@@ -167,8 +181,8 @@ def run(parameters: dict, player=None, session_memory=None) -> str:
                 return clip_err
             message = resolved_msg
 
-        if not message:
-            return "Please specify the message you would like to send."
+        if not message and action != "draft":
+            return f"What message would you like to send to {receiver}?"
 
         sent, info = driver.send_message_to(
             receiver=receiver,

@@ -246,6 +246,117 @@ def _resolve_clipboard_content(message_text: str, from_clipboard: bool = False, 
     return clip_text, True, ""
 
 
+def _is_echoed_receiver_or_empty(message_text: str, receiver: str) -> bool:
+    """Checks whether the message text is empty or simply echoes the receiver name or command."""
+    msg = (message_text or "").strip().lower()
+    rec = (receiver or "").strip().lower()
+    if not msg:
+        return True
+    if rec and (
+        msg == rec
+        or msg in (f"to {rec}", f"send to {rec}", f"message {rec}", f"send message to {rec}", f"text {rec}", f"whatsapp {rec}")
+    ):
+        return True
+    if msg in ("send message", "message", "text", "whatsapp", "send", "draft", "draft message"):
+        return True
+    return False
+
+
+def _type_without_clipboard(text: str) -> None:
+    """Types text directly into the active field without touching or corrupting the OS clipboard."""
+    if not text:
+        return
+    is_ascii = all(ord(c) < 128 for c in text)
+    if is_ascii and _PYAUTOGUI:
+        pyautogui.write(text, interval=0.015)
+        return
+
+    # Windows Unicode SendInput
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+
+            INPUT_KEYBOARD = 1
+            KEYEVENTF_UNICODE = 0x0004
+            KEYEVENTF_KEYUP = 0x0002
+
+            class KEYBDINPUT(ctypes.Structure):
+                _fields_ = [
+                    ('wVk', wintypes.WORD),
+                    ('wScan', wintypes.WORD),
+                    ('dwFlags', wintypes.DWORD),
+                    ('time', wintypes.DWORD),
+                    ('dwExtraInfo', ctypes.POINTER(wintypes.ULONG)),
+                ]
+
+            class INPUT(ctypes.Structure):
+                class _INPUT(ctypes.Union):
+                    _fields_ = [('ki', KEYBDINPUT)]
+                _anonymous_ = ('_input',)
+                _fields_ = [('type', wintypes.DWORD), ('_input', _INPUT)]
+
+            for char in text:
+                code = ord(char)
+                inp_down = INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(wVk=0, wScan=code, dwFlags=KEYEVENTF_UNICODE, time=0, dwExtraInfo=None))
+                inp_up = INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(wVk=0, wScan=code, dwFlags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, time=0, dwExtraInfo=None))
+                user32.SendInput(2, (INPUT * 2)(inp_down, inp_up), ctypes.sizeof(INPUT))
+                time.sleep(0.01)
+            return
+        except Exception:
+            pass
+
+    if _PYAUTOGUI:
+        pyautogui.write(text, interval=0.02)
+
+
+def _safe_set_clipboard(text: str, player=None, retries: int = 6) -> bool:
+    """Sets system clipboard safely with retry loop, notifying player to avoid cache pollution."""
+    if player and hasattr(player, "set_internal_clipboard_operation"):
+        try:
+            player.set_internal_clipboard_operation(True)
+        except Exception:
+            pass
+
+    if sys.platform == "win32":
+        try:
+            import win32clipboard, win32con
+            for _ in range(retries):
+                try:
+                    win32clipboard.OpenClipboard()
+                    try:
+                        win32clipboard.EmptyClipboard()
+                        win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, text)
+                        return True
+                    finally:
+                        win32clipboard.CloseClipboard()
+                except Exception:
+                    time.sleep(0.04)
+        except Exception:
+            pass
+
+    if _PYPERCLIP:
+        for _ in range(retries):
+            try:
+                pyperclip.copy(text)
+                return True
+            except Exception:
+                time.sleep(0.04)
+
+    return False
+
+
+def _restore_clipboard_if_saved(saved_clip: str | None, player=None) -> None:
+    if saved_clip is not None:
+        _safe_set_clipboard(saved_clip, player=player)
+    if player and hasattr(player, "set_internal_clipboard_operation"):
+        try:
+            player.set_internal_clipboard_operation(False)
+        except Exception:
+            pass
+
+
 def _require_pyautogui():
     if not _PYAUTOGUI:
         raise RuntimeError("PyAutoGUI not installed. Run: pip install pyautogui")
@@ -283,8 +394,8 @@ def _open_app(app_name: str) -> bool:
     try:
         if os_name == "windows":
             pyautogui.press("win")
-            time.sleep(0.5)
-            _paste_text(app_name)
+            time.sleep(0.4)
+            _type_without_clipboard(app_name)
             time.sleep(0.6)
             pyautogui.press("enter")
             time.sleep(2.5)
@@ -343,9 +454,14 @@ def _search_in_app(query: str) -> None:
     search_hotkey = ("command", "f") if os_name == "mac" else ("ctrl", "f")
 
     pyautogui.hotkey(*search_hotkey)
-    time.sleep(0.5)
-    _clear_and_paste(query)
-    time.sleep(1.0)
+    time.sleep(0.4)
+    select_all = ("command", "a") if os_name == "mac" else ("ctrl", "a")
+    pyautogui.hotkey(*select_all)
+    time.sleep(0.05)
+    pyautogui.press("backspace")
+    time.sleep(0.05)
+    _type_without_clipboard(query)
+    time.sleep(0.8)
 
 def _desktop_send(app_name: str, receiver: str, message: str) -> str:
     if not _open_app(app_name):
@@ -362,7 +478,7 @@ def _desktop_send(app_name: str, receiver: str, message: str) -> str:
     time.sleep(0.3)
     return f"Message sent to {receiver} via {app_name}."
 
-def _send_whatsapp(receiver: str, message: str, mode: str = "send", phone_number: str = None) -> str:
+def _send_whatsapp(receiver: str, message: str, mode: str = "send", phone_number: str = None, player=None) -> str:
     """WhatsApp multi-tier verified driver:
     1. Protocol Deep-Link (whatsapp://send?phone=...&text=...)
     2. Desktop/UWP UI Automation (Window focus, Ctrl+F, chat selection)
@@ -389,6 +505,7 @@ def _send_whatsapp(receiver: str, message: str, mode: str = "send", phone_number
         message=message,
         mode=mode,
         phone_override=phone_number,
+        player=player,
     )
     if sent:
         return status_msg
@@ -492,30 +609,44 @@ def send_message(
     if not receiver:
         return "Please specify a recipient contact name or phone number."
 
+    # If message_text was omitted, empty, or echoed the receiver / command name
+    # (e.g. user said "send message to mom", and LLM passed receiver="Mom", message_text="Mom"):
+    if _is_echoed_receiver_or_empty(message_text, receiver):
+        clip = _get_clipboard_text(player=player)
+        if clip and not _is_echoed_receiver_or_empty(clip, receiver):
+            message_text = clip
+            from_clipboard = True
+            print(f"[SendMessage] [clipboard] Receiver '{receiver}' had no distinct message body; using live clipboard content ({len(clip)} chars).")
+        else:
+            if mode == "draft":
+                message_text = ""
+            else:
+                return f"What message would you like me to send to {receiver}? (Your clipboard is currently empty)."
+
     # Intercept and resolve clipboard placeholders or requests to actual clipboard content
     resolved_text, was_clip, clip_err = _resolve_clipboard_content(message_text, from_clipboard=from_clipboard, player=player)
     if was_clip:
         if clip_err:
-            print(f"[SendMessage] ⚠️ Clipboard requested but empty: {clip_err}")
+            print(f"[SendMessage] Clipboard requested but empty: {clip_err}")
             return clip_err
         message_text = resolved_text
-        print(f"[SendMessage] 📋 Successfully resolved clipboard content ({len(message_text)} chars).")
+        print(f"[SendMessage] Successfully resolved clipboard content ({len(message_text)} chars).")
 
-    if not message_text:
-        return "Please specify the message content to send."
+    if not message_text and mode != "draft":
+        return f"What message would you like me to send to {receiver}?"
     if not _PYAUTOGUI:
         return "PyAutoGUI is not installed — cannot control the desktop."
 
-    preview = message_text[:50] + ("…" if len(message_text) > 50 else "")
+    preview = (message_text[:50] + "…") if len(message_text) > 50 else (message_text or "(empty draft)")
     action_type = "Drafting" if mode == "draft" else "Sending"
-    print(f"[SendMessage] 📨 {action_type} via {platform} → {receiver}: {preview}")
+    print(f"[SendMessage] {action_type} via {platform} -> {receiver}: {preview}")
     if player:
-        player.write_log(f"[msg] {action_type} {platform} → {receiver}")
+        player.write_log(f"[msg] {action_type} {platform} -> {receiver}")
 
     try:
         handler = _resolve_platform(platform)
         if handler == _send_whatsapp:
-            result = handler(receiver, message_text, mode=mode, phone_number=phone_number)
+            result = handler(receiver, message_text, mode=mode, phone_number=phone_number, player=player)
         else:
             result = handler(receiver, message_text)
     except Exception as e:
@@ -523,7 +654,7 @@ def send_message(
 
     lowered = result.lower()
     ok = ("sent" in lowered or "draft" in lowered) and "not sent" not in lowered
-    print(f"[SendMessage] {'✅' if ok else '❌'} {result}")
+    print(f"[SendMessage] {'[OK]' if ok else '[FAIL]'} {result}")
     if player:
         player.write_log(f"[msg] {result}")
 
@@ -553,7 +684,7 @@ TOOL = {
             },
             "message_text": {
                 "type": "STRING",
-                "description": "The exact message content to compose and send or draft. If sending user's clipboard/copied content, pass '[PASTE_CLIPBOARD]'"
+                "description": "The exact message content to compose and send or draft. If the user did not say what to text, or asks to send what they copied / from clipboard, use '[PASTE_CLIPBOARD]' or set from_clipboard=True. NEVER use the recipient's name as message_text."
             },
             "platform": {
                 "type": "STRING",

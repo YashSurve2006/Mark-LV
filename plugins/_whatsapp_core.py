@@ -278,6 +278,117 @@ def _resolve_clipboard_content(message_text: str, from_clipboard: bool = False, 
     return clip_text, True, ""
 
 
+def _is_echoed_receiver_or_empty(message_text: str, receiver: str) -> bool:
+    """Checks whether the message text is empty or simply echoes the receiver name or command."""
+    msg = (message_text or "").strip().lower()
+    rec = (receiver or "").strip().lower()
+    if not msg:
+        return True
+    if rec and (
+        msg == rec
+        or msg in (f"to {rec}", f"send to {rec}", f"message {rec}", f"send message to {rec}", f"text {rec}", f"whatsapp {rec}")
+    ):
+        return True
+    if msg in ("send message", "message", "text", "whatsapp", "send", "draft", "draft message"):
+        return True
+    return False
+
+
+def _type_without_clipboard(text: str) -> None:
+    """Types text directly into the focused control without touching or corrupting the OS clipboard."""
+    if not text:
+        return
+    is_ascii = all(ord(c) < 128 for c in text)
+    if is_ascii and _PYAUTOGUI:
+        pyautogui.write(text, interval=0.015)
+        return
+
+    # Windows Unicode SendInput
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+
+            INPUT_KEYBOARD = 1
+            KEYEVENTF_UNICODE = 0x0004
+            KEYEVENTF_KEYUP = 0x0002
+
+            class KEYBDINPUT(ctypes.Structure):
+                _fields_ = [
+                    ('wVk', wintypes.WORD),
+                    ('wScan', wintypes.WORD),
+                    ('dwFlags', wintypes.DWORD),
+                    ('time', wintypes.DWORD),
+                    ('dwExtraInfo', ctypes.POINTER(wintypes.ULONG)),
+                ]
+
+            class INPUT(ctypes.Structure):
+                class _INPUT(ctypes.Union):
+                    _fields_ = [('ki', KEYBDINPUT)]
+                _anonymous_ = ('_input',)
+                _fields_ = [('type', wintypes.DWORD), ('_input', _INPUT)]
+
+            for char in text:
+                code = ord(char)
+                inp_down = INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(wVk=0, wScan=code, dwFlags=KEYEVENTF_UNICODE, time=0, dwExtraInfo=None))
+                inp_up = INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(wVk=0, wScan=code, dwFlags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, time=0, dwExtraInfo=None))
+                user32.SendInput(2, (INPUT * 2)(inp_down, inp_up), ctypes.sizeof(INPUT))
+                time.sleep(0.01)
+            return
+        except Exception:
+            pass
+
+    if _PYAUTOGUI:
+        pyautogui.write(text, interval=0.02)
+
+
+def _safe_set_clipboard(text: str, player=None, retries: int = 6) -> bool:
+    """Sets system clipboard safely with retry loop, notifying player to avoid cache pollution."""
+    if player and hasattr(player, "set_internal_clipboard_operation"):
+        try:
+            player.set_internal_clipboard_operation(True)
+        except Exception:
+            pass
+
+    if sys.platform == "win32":
+        try:
+            import win32clipboard, win32con
+            for _ in range(retries):
+                try:
+                    win32clipboard.OpenClipboard()
+                    try:
+                        win32clipboard.EmptyClipboard()
+                        win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, text)
+                        return True
+                    finally:
+                        win32clipboard.CloseClipboard()
+                except Exception:
+                    time.sleep(0.04)
+        except Exception:
+            pass
+
+    if _PYPERCLIP:
+        for _ in range(retries):
+            try:
+                pyperclip.copy(text)
+                return True
+            except Exception:
+                time.sleep(0.04)
+
+    return False
+
+
+def _restore_clipboard_if_saved(saved_clip: Optional[str], player=None) -> None:
+    if saved_clip is not None:
+        _safe_set_clipboard(saved_clip, player=player)
+    if player and hasattr(player, "set_internal_clipboard_operation"):
+        try:
+            player.set_internal_clipboard_operation(False)
+        except Exception:
+            pass
+
+
 # ── Contact & Phone Number Intelligence ───────────────────────────────────────
 
 def _load_memory() -> dict:
@@ -555,12 +666,20 @@ class WhatsAppDesktopTransport:
         receiver_name: str,
         message: str,
         mode: str = "send",
+        player=None,
+        preserve_clipboard: bool = False,
     ) -> Tuple[bool, str]:
         if not _PYAUTOGUI:
             return (False, "PyAutoGUI is not available for desktop UI automation.")
 
+        # If preserve_clipboard is requested (e.g. message was spoken, not from clipboard),
+        # save the user's existing clipboard so we can restore it after sending
+        saved_clip = None
+        if preserve_clipboard:
+            saved_clip = _get_clipboard_text(player=player)
+
         # Defense-in-depth: resolve any unresolved clipboard placeholders
-        resolved_msg, was_clip, err = _resolve_clipboard_content(message)
+        resolved_msg, was_clip, err = _resolve_clipboard_content(message, player=player)
         if was_clip:
             if err:
                 return (False, err)
@@ -577,24 +696,18 @@ class WhatsAppDesktopTransport:
 
         time.sleep(0.3)
 
-        # In WhatsApp Desktop, Ctrl+N opens 'New chat' dialog which directly searches all contacts & numbers
-        # Ctrl+F searches active chat list. We try Ctrl+N first for full contact coverage.
+        # In WhatsApp Desktop, Ctrl+N opens 'New chat' dialog which directly searches all contacts & numbers.
+        # Clear search input and TYPE contact name directly — NEVER use clipboard for contact search!
         pyautogui.hotkey("ctrl", "n")
         time.sleep(0.4)
 
-        # Clear search input
         pyautogui.hotkey("ctrl", "a")
         time.sleep(0.05)
         pyautogui.press("backspace")
         time.sleep(0.05)
 
-        # Paste contact name via clipboard for instant non-corrupting input
-        if _PYPERCLIP:
-            pyperclip.copy(receiver_name)
-            time.sleep(0.05)
-            pyautogui.hotkey("ctrl", "v")
-        else:
-            pyautogui.write(receiver_name, interval=0.03)
+        # Direct typing without clipboard pollution
+        _type_without_clipboard(receiver_name)
 
         time.sleep(0.7)
 
@@ -602,14 +715,21 @@ class WhatsAppDesktopTransport:
         pyautogui.press("enter")
         time.sleep(0.5)
 
-        # If Ctrl+N didn't switch, try Ctrl+F fallback
-        # Paste message into chat compose input
-        if _PYPERCLIP:
-            pyperclip.copy(message)
-            time.sleep(0.05)
-            pyautogui.hotkey("ctrl", "v")
-        else:
-            pyautogui.write(message, interval=0.02)
+        # Paste or type message into chat compose input
+        if message:
+            pasted = False
+            if _PYPERCLIP:
+                if _safe_set_clipboard(message, player=player):
+                    time.sleep(0.05)
+                    pyautogui.hotkey("ctrl", "v")
+                    time.sleep(0.15)
+                    pasted = True
+            if not pasted:
+                _type_without_clipboard(message)
+                time.sleep(0.1)
+
+        # Restore user's original clipboard if it was saved
+        _restore_clipboard_if_saved(saved_clip, player=player)
 
         time.sleep(0.2)
 
@@ -682,6 +802,20 @@ class WhatsAppDriver:
         - If contact name with no phone, uses Desktop UI automation.
         - Falls back gracefully to WhatsApp Web.
         """
+        receiver_name, resolved_phone = resolve_contact(receiver)
+
+        # Check if message is empty or merely echoes the recipient/command name (e.g. user said "send message to mom")
+        if _is_echoed_receiver_or_empty(message, receiver) or _is_echoed_receiver_or_empty(message, receiver_name):
+            clip = _get_clipboard_text(player=player)
+            if clip and not _is_echoed_receiver_or_empty(clip, receiver) and not _is_echoed_receiver_or_empty(clip, receiver_name):
+                message = clip
+                from_clipboard = True
+                print(f"[WhatsApp] [clipboard] Receiver '{receiver_name}' had no distinct message body; using live clipboard content ({len(clip)} chars).")
+            else:
+                if mode != "draft":
+                    return (False, f"What message would you like to send to {receiver_name}? (Your clipboard is currently empty).")
+                message = ""
+
         # Resolve clipboard placeholders or explicit from_clipboard requests
         resolved_msg, was_clip, err = _resolve_clipboard_content(message, from_clipboard=from_clipboard, player=player)
         if was_clip:
@@ -689,7 +823,6 @@ class WhatsAppDriver:
                 return (False, err)
             message = resolved_msg
 
-        receiver_name, resolved_phone = resolve_contact(receiver)
         target_phone = clean_phone_number(phone_override) if phone_override else resolved_phone
 
         # Tier 1: Protocol DeepLink if phone number is known and URI is within safe length (< 1500 chars)
@@ -710,6 +843,8 @@ class WhatsAppDriver:
             receiver_name=receiver_name,
             message=message,
             mode=mode,
+            player=player,
+            preserve_clipboard=not was_clip,
         )
         if success:
             return (True, info)

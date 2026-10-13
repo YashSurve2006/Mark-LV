@@ -228,12 +228,13 @@ Routing rules for computer and browser control:
 
 6. MESSAGING & WHATSAPP (compose, draft, and send):
    - The user primarily uses the native WhatsApp Desktop application on Windows.
-   - When the user asks to send, text, or WhatsApp a message (e.g. "Send a WhatsApp to Mom saying I will be late", "Message Alex on WhatsApp", "Send message to +919876543210"):
-     → Call send_message with receiver (contact name, relationship like 'Mom', or phone number), message_text, platform='whatsapp', and mode='send'. It operates directly in the WhatsApp Desktop app.
-   - When the user asks to draft or stage a message (e.g. "Draft a WhatsApp message to Alex"):
+   - When the user asks to send, text, or WhatsApp a message with specified content (e.g. "Send a WhatsApp to Mom saying I will be late", "Tell Dad on WhatsApp that dinner is ready"):
+     → Call send_message with receiver (contact name, relationship like 'Mom', or phone number), message_text (the actual message text to convey, NEVER the recipient's name), platform='whatsapp', and mode='send'. It operates directly in the WhatsApp Desktop app.
+   - When the user asks to send a message without specifying what to say, or asks to send their clipboard (e.g. "Send message to Mom", "Send this to Mom on WhatsApp", "WhatsApp my clipboard to Alex", "Send copied link to Dad"):
+     → Call send_message with receiver, message_text='[PASTE_CLIPBOARD]', from_clipboard=True, platform='whatsapp', and mode='send' (or mode='draft'). The messaging system automatically retrieves the live clipboard content and sends the real copied text or URL.
+     CRITICAL: NEVER set message_text to the recipient's name or relationship (e.g. NEVER message_text='Mom').
+   - When the user asks to draft or stage a message (e.g. "Draft a WhatsApp message to Alex saying hello"):
      → Call send_message with mode='draft' so the message is composed into the WhatsApp Desktop chat compose box without pressing send, allowing the user to review.
-   - When the user asks to send or share their clipboard / copied text / copied link (e.g. "Send what's on my clipboard to Mom on WhatsApp", "WhatsApp my clipboard to Alex", "Send copied link to Dad"):
-     → Call send_message with receiver, message_text='[PASTE_CLIPBOARD]', from_clipboard=True, platform='whatsapp', and mode='send' (or mode='draft'). The messaging system automatically retrieves the live clipboard content and sends the real copied text or URL. Never output raw placeholder text to the chat.
    - For dedicated WhatsApp tasks (opening conversations, checking connection, or saving contacts):
      → Call whatsapp with action='open_chat'|'send'|'draft'|'add_contact'|'status'.
 
