@@ -19,7 +19,7 @@
 
 > 🎙️ **A real-time voice AI that can hear, see, speak, and autonomously operate your computer with sub-50ms native reflexes.** Zero subscription fees, zero cloud lock-in, and total digital autonomy.
 
-[⚡ Quick Start](#-quick-start) • [🖥️ Live UI Showcase](#️-live-interface--actual-screenshots) • [🌐 Chrome & OS Control](#-autonomous-chrome--computer-control) • [🏗️ Architecture](#️-system-architecture) • [🔧 Setup & Run Guide](#-step-by-step-setup-and-run-guide) • [👤 Developer](#-developer--community)
+[⚡ Quick Start](#-quick-start) • [🖥️ Live UI Showcase](#️-live-interface--actual-screenshots) • [🌐 Chrome & OS Control](#-autonomous-chrome--computer-control) • [📨 WhatsApp Engine](#-whatsapp--desktop-messaging) • [🏗️ Architecture](#️-system-architecture) • [🔧 Setup & Run Guide](#-step-by-step-setup-and-run-guide) • [👤 Developer](#-developer--community)
 
 </div>
 
@@ -30,8 +30,10 @@
 - [✨ Overview](#-overview)
 - [🖥️ Live Interface & Actual Screenshots](#️-live-interface--actual-screenshots)
 - [🌐 Autonomous Chrome & Computer Control](#-autonomous-chrome--computer-control)
+- [📨 WhatsApp & Desktop Messaging](#-whatsapp--desktop-messaging)
 - [🏗️ System Architecture](#️-system-architecture)
 - [🚀 Core Capabilities](#-core-capabilities)
+- [🗣️ Voice Commands Cheatsheet](#️-voice-commands-cheatsheet)
 - [🆕 What's New in Mark LV](#-whats-new-in-mark-lv)
 - [⚡ Quick Start](#-quick-start)
 - [🔧 Step-by-Step Setup and Run Guide](#-step-by-step-setup-and-run-guide)
@@ -40,6 +42,7 @@
   - [3. Manual Setup](#3-manual-installation)
   - [4. Platform-Specific Setup](#4-platform-specific-configuration)
   - [5. How to Run](#5-how-to-run)
+  - [6. API Keys & Configuration](#6-api-keys--configuration)
 - [🎛️ Settings, Drawers & Customization](#️-settings-drawers--customization)
 - [🗂️ Project Structure](#️-project-structure)
 - [🔒 Security & Data Privacy](#-security--data-privacy)
@@ -129,6 +132,43 @@ JARVIS Mark LV works directly on your **active, logged-in Google Chrome browser*
 
 ---
 
+## 📨 WhatsApp & Desktop Messaging
+
+JARVIS Mark LV includes an intelligent, multi-tier messaging pipeline designed to operate directly with the **native Windows WhatsApp Desktop application** (`5319275A.WhatsAppDesktop` / UWP) with zero browser clutter and instantaneous execution:
+
+<div align="center">
+  <table width="100%">
+    <tr>
+      <td width="33%" align="center">
+        <b>⚡ Tier 1: Protocol Deep-Link</b><br/>
+        <code>whatsapp://send?phone=...&text=...</code><br/>
+        <sub>Direct kernel protocol launch straight to recipient with zero search delay.</sub>
+      </td>
+      <td width="33%" align="center">
+        <b>🖥️ Tier 2: Desktop UI Automation</b><br/>
+        <code>Ctrl + N</code> new chat modal + clipboard injection.<br/>
+        <sub>Searches contact address book & handles emojis and multi-line formatting safely.</sub>
+      </td>
+      <td width="33%" align="center">
+        <b>🌐 Tier 3: Browser Web Fallback</b><br/>
+        <code>web.whatsapp.com/send</code><br/>
+        <sub>Seamless browser fallback if desktop app is temporarily unreachable.</sub>
+      </td>
+    </tr>
+  </table>
+</div>
+
+### Key Messaging Capabilities
+
+- **🚀 Native WhatsApp Desktop Priority:** Automatically launches and restores your installed Windows WhatsApp Desktop app from the background or system tray in $<10\text{ms}$ using in-process COM and `win32gui`.
+- **👁️ Safe Review Drafting Mode (`mode="draft"`):** Ask JARVIS *"Draft a message to Alex"* $\rightarrow$ JARVIS opens the chat and types the message into the WhatsApp compose box **without pressing Send**, allowing you to visually review the message before dispatching.
+- **⚡ Instant Dispatch Mode (`mode="send"`):** Ask JARVIS *"Send a WhatsApp to Mom saying I'm heading home"* $\rightarrow$ JARVIS resolves Mom's phone number from local memory, targets the chat, and sends the message automatically.
+- **🧠 Persistent Contact & Relationship Recall:** Stores nicknames and phone numbers locally in `memory/long_term.json`. Say *"Save contact Alex with number +91 9876543210 as brother"*, and JARVIS will recall and use that number for all future voice commands.
+- **🌐 International Number Normalization:** Automatically cleans phone strings (strips dashes, spaces, and leading zeros) and formats international country codes (e.g. `+91` India, `+1` US/Canada).
+- **💬 Multi-Platform Dispatch:** Seamlessly routes messages across Telegram, Discord, Signal, Instagram Direct, and Facebook Messenger using the same unified `send_message` action.
+
+---
+
 ## 🏗️ System Architecture
 
 JARVIS Mark LV separates voice processing, cognitive planning, and motor execution into decoupled, non-blocking pipelines:
@@ -192,6 +232,30 @@ flowchart TD
 | **Video on the HUD** | Media | Play YouTube and local videos directly inside the HUD avatar viewport. |
 | **Remote Dashboard** | Mobility | Mobile web dashboard accessible via QR code with self-signed TLS security. |
 | **📨 WhatsApp Automation** | Messaging | Compose, draft, and send WhatsApp messages directly via protocol deep-link, desktop UWP app, or web. Includes contact memory & safe drafting mode. |
+
+---
+
+## 🗣️ Voice Commands Cheatsheet
+
+Speak naturally to JARVIS in English or your native language. The engine parses intent, selects the fastest motor skill, and executes in real time:
+
+| Category | Example Voice Command | What JARVIS Executes |
+|:---|:---|:---|
+| **🌐 Chrome & Documents** | *"Scroll down to page 7 in this PDF"* | Sub-40ms native motor jump straight to page 7 without re-rendering delays. |
+| | *"Switch to my GitHub pull request tab"* | Matches open tab titles via Chromium Quick Tabs (`Ctrl+Shift+A`). |
+| | *"Read what this webpage says"* | Zero-token DOM inspection extracting visible page content in <100ms. |
+| **📨 WhatsApp Automation** | *"Send a WhatsApp to Mom saying I'm on my way"* | Auto-resolves Mom's phone number and sends via WhatsApp Desktop app. |
+| | *"Draft a WhatsApp message to Alex about lunch"* | Stages draft in WhatsApp compose box for visual review before sending. |
+| | *"Save contact Rahul with number +91 98765 43210"* | Persists Rahul's details into `memory/long_term.json`. |
+| **💻 Autonomous Coding** | *"Build a weather FastAPI service in Python and test it"* | Triggers `dev_agent` to plan architecture, write files, run tests, and open IDE. |
+| | *"Write a test script for my database model and run it"* | Triggers `code_helper` to write unit tests, verify exit codes, and report results. |
+| | *"Open this project in VS Code"* | Launches and focuses your IDE on the current project directory. |
+| **📺 In-HUD Media** | *"Play Interstellar main theme on the HUD"* | Switches avatar to synchronized video player with automatic mic auto-ducking. |
+| | *"Pause playback"* / *"Volume up to 75%"* | Adjusts media state or system sound output levels natively. |
+| **🧠 Memory & Recall** | *"Remember that my primary IDE is Antigravity"* | Silently registers preference into persistent long-term storage. |
+| | *"What are my active projects right now?"* | Reads your stored goals and active projects from long-term memory. |
+| **🛡️ Safety & System** | *"Undo that"* | Automatically rolls back the last file move, deletion, or settings change. |
+| | *"Turn off Wi-Fi"* / *"Restart the system"* | Displays a hardware confirmation banner on the HUD for physical click verification. |
 
 ---
 
@@ -320,12 +384,39 @@ python ui.py
 
 ---
 
+### 6. API Keys & Configuration
+
+Configuration is managed locally via `config/api_keys.json` (strictly protected by `.gitignore` so your personal keys are never exposed).
+
+A clean template is provided in [`config/api_keys.json.example`](file:///d:/JARVIS/Mark-LV/config/api_keys.json.example):
+
+```json
+{
+  "gemini_api_key": "YOUR_GEMINI_API_KEY",
+  "github_token": "YOUR_OPTIONAL_GITHUB_PAT",
+  "assistant_name": "Jarvis",
+  "os_system": "windows"
+}
+```
+
+| Key | Required? | Source / Purpose |
+|:---|:---|:---|
+| `gemini_api_key` | **Yes** | Free from [Google AI Studio](https://aistudio.google.com/app/apikey). Powers the Gemini Live audio session & 9-tier Model Ladder. |
+| `github_token` | Optional | Personal Access Token from [GitHub Developer Settings](https://github.com/settings/tokens). Enables `github_manager` repo, PR, and commit automation. |
+| `assistant_name` | Optional | Customizes assistant's voice trigger name (default: `"Jarvis"`). |
+| `os_system` | Optional | Host OS identifier (`"windows"`, `"mac"`, `"linux"`). Auto-detected if omitted. |
+
+---
+
 ## 🎛️ Settings, Drawers & Customization
 
 | Action | How to Trigger | Description |
 |:---|:---|:---|
 | **Push-to-Talk** | Hold **`Ctrl + Space`** | Instantly opens microphone; release to stop streaming audio. |
 | **Wake Word** | Say *"Hey Jarvis"* | Activates assistant from sleep (toggle in `CONTROLS` drawer). |
+| **Send WhatsApp** | Say *"Send a WhatsApp to Mom: I'm on my way"* | Dispatches directly via native WhatsApp Desktop with auto-resolved contact number. |
+| **Draft WhatsApp** | Say *"Draft a WhatsApp to Alex about lunch"* | Stages message in WhatsApp Desktop compose box without sending for your visual review. |
+| **Save Contact** | Say *"Save contact Alex with number +91..."* | Persists contact details & relationship aliases in long-term recall memory. |
 | **Instant PDF Jump** | Say *"Scroll to page 5"* | Instantly jumps to page 5 in Chrome PDF reader (<40ms). |
 | **Relative Page Scroll** | Say *"Scroll down 3 pages"* | Smoothly scrolls down 3 pages using `PageDown`. |
 | **Custom Theme** | Open `SETUP` $\rightarrow$ **Hue Wheel** | Live recolors entire HUD and 3D avatar wireframe. |
@@ -436,6 +527,7 @@ Mark-LV/
 | **Cognitive Ladder** | 9-tier model fallback cascading across Gemini models with quota cooldowns and auto-resumption. | `core/gemini.py`, `core/llm_client.py`, `core/prompt.txt` |
 | **3D Holographic HUD** | Pure-software 3D facial mesh rendering with zero GPU overhead, audio oscilloscope, telemetry gauges. | `ui.py`, `core/avatar.py`, `core/avatar_mesh.py`, `core/face_model.obj` |
 | **Motor & Browser Engine** | Sub-50ms native mouse, keyboard, active Chrome tab interaction, instant PDF jumping, settings control. | `actions/computer_control.py`, `actions/computer_settings.py`, `actions/browser_control.py` |
+| **Messaging & WhatsApp** | Multi-tier WhatsApp automation (protocol, desktop UWP, web), contact memory, safe drafting mode. | `actions/send_message.py`, `plugins/_whatsapp_core.py`, `plugins/whatsapp.py` |
 | **Autonomous Dev Agent** | Multi-file codebase synthesis, unit test execution, and IDE workspace launching from voice commands. | `actions/dev_agent.py`, `actions/code_helper.py`, `core/coder_engine.py` |
 | **Safety & Memory** | Universal undo journal, hardware confirmation gates, persistent local recallable memory. | `core/undo.py`, `core/confirm.py`, `memory/memory_manager.py` |
 | **Remote Companion** | Encrypted mobile web dashboard accessible via QR code with self-signed TLS encryption. | `dashboard/server.py`, `dashboard/static/app.html` |
