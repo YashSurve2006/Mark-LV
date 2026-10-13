@@ -149,27 +149,11 @@ def _desktop_send(app_name: str, receiver: str, message: str) -> str:
     time.sleep(0.3)
     return f"Message sent to {receiver} via {app_name}."
 
-def _send_whatsapp(receiver: str, message: str) -> str:
-    """WhatsApp goes through the verified driver when there is one.
-
-    _desktop_send below is a sequence of keystrokes with sleeps between them:
-    it presses Win, types the app name, presses Ctrl+F, types the contact,
-    presses Enter twice and reports success — without ever reading back which
-    window received any of that. When the machine is a second slower than the
-    sleeps assume, the whole sequence lands somewhere else and the user is
-    still told the message was sent.
-
-    plugins/_whatsapp_core.py already drives WhatsApp properly for the calling
-    plugins: it finds the real window, opens the conversation, checks the
-    conversation is the right person's, types, and confirms the box emptied
-    before it says "sent". Using it here costs nothing and removes the one
-    failure that matters — a message reported as delivered that never left.
-
-    The blind path stays as the fallback for a machine where the driver cannot
-    run at all (the plugin file removed, a missing dependency, no WhatsApp).
-    But once the driver HAS run, its answer stands: falling back after it
-    refused to send is how a message ends up typed into the wrong
-    conversation, which is worse than not sending it.
+def _send_whatsapp(receiver: str, message: str, mode: str = "send", phone_number: str = None) -> str:
+    """WhatsApp multi-tier verified driver:
+    1. Protocol Deep-Link (whatsapp://send?phone=...&text=...)
+    2. Desktop/UWP UI Automation (Window focus, Ctrl+F, chat selection)
+    3. WhatsApp Web in browser fallback
     """
     try:
         from plugins import _whatsapp_core as wa
@@ -187,25 +171,30 @@ def _send_whatsapp(receiver: str, message: str) -> str:
         print(f"[SendMessage] {why} — typing blind.")
         return _desktop_send("WhatsApp", receiver, message)
 
-    sent, failure = transport.send_message_to(receiver, message)
+    sent, status_msg = transport.send_message_to(
+        receiver=receiver,
+        message=message,
+        mode=mode,
+        phone_override=phone_number,
+    )
     if sent:
-        return f"Message sent to {receiver} via WhatsApp."
-    return (f"The message to {receiver} was NOT sent on WhatsApp: {failure}. "
+        return status_msg
+    return (f"The message to {receiver} was NOT sent on WhatsApp: {status_msg}. "
             f"Tell the user plainly that it was not sent, and why - do not "
             f"say it was sent.")
 
-def _send_telegram(receiver: str, message: str) -> str:
+def _send_telegram(receiver: str, message: str, **kwargs) -> str:
     return _desktop_send("Telegram", receiver, message)
 
-def _send_signal(receiver: str, message: str) -> str:
+def _send_signal(receiver: str, message: str, **kwargs) -> str:
     return _desktop_send("Signal", receiver, message)
 
 
-def _send_discord(receiver: str, message: str) -> str:
+def _send_discord(receiver: str, message: str, **kwargs) -> str:
     return _desktop_send("Discord", receiver, message)
 
 
-def _send_instagram(receiver: str, message: str) -> str:
+def _send_instagram(receiver: str, message: str, **kwargs) -> str:
     _require_pyautogui()
 
     if not _open_browser_url("https://www.instagram.com/direct/new/"):
@@ -233,12 +222,11 @@ def _send_instagram(receiver: str, message: str) -> str:
     return f"Message sent to {receiver} via Instagram."
 
 
-def _send_messenger(receiver: str, message: str) -> str:
+def _send_messenger(receiver: str, message: str, **kwargs) -> str:
     _require_pyautogui()
 
     if not _open_browser_url("https://www.messenger.com/"):
         return "Could not open Messenger in browser."
-
 
     _search_in_app(receiver)
     time.sleep(0.5)
@@ -265,11 +253,11 @@ _PLATFORM_MAP = [
 
 
 def _resolve_platform(platform_str: str):
-    key = platform_str.lower().strip()
+    key = (platform_str or "whatsapp").lower().strip()
     for keywords, handler in _PLATFORM_MAP:
         if any(k in key for k in keywords):
             return handler
-    return lambda r, m: _desktop_send(platform_str.strip().title(), r, m)
+    return lambda r, m, **kw: _desktop_send(platform_str.strip().title(), r, m)
 
 
 def send_message(
@@ -282,29 +270,35 @@ def send_message(
     receiver     = params.get("receiver", "").strip()
     message_text = params.get("message_text", "").strip()
     platform     = params.get("platform", "whatsapp").strip()
+    mode         = str(params.get("mode", "send")).strip().lower()
+    if mode not in ("send", "draft"):
+        mode = "send"
+    phone_number = params.get("phone_number", "").strip() or None
 
     if not receiver:
-        return "Please specify a recipient."
+        return "Please specify a recipient contact name or phone number."
     if not message_text:
-        return "Please specify the message content."
+        return "Please specify the message content to send."
     if not _PYAUTOGUI:
         return "PyAutoGUI is not installed — cannot control the desktop."
 
     preview = message_text[:50] + ("…" if len(message_text) > 50 else "")
-    print(f"[SendMessage] 📨 {platform} → {receiver}: {preview}")
+    action_type = "Drafting" if mode == "draft" else "Sending"
+    print(f"[SendMessage] 📨 {action_type} via {platform} → {receiver}: {preview}")
     if player:
-        player.write_log(f"[msg] {platform} → {receiver}")
+        player.write_log(f"[msg] {action_type} {platform} → {receiver}")
 
     try:
         handler = _resolve_platform(platform)
-        result  = handler(receiver, message_text)
+        if handler == _send_whatsapp:
+            result = handler(receiver, message_text, mode=mode, phone_number=phone_number)
+        else:
+            result = handler(receiver, message_text)
     except Exception as e:
         result = f"Could not send message: {e}"
 
-    # "NOT sent" contains "sent". The old test read that as a success and put a
-    # tick next to a message that never went.
     lowered = result.lower()
-    ok = "sent" in lowered and "not sent" not in lowered
+    ok = ("sent" in lowered or "draft" in lowered) and "not sent" not in lowered
     print(f"[SendMessage] {'✅' if ok else '❌'} {result}")
     if player:
         player.write_log(f"[msg] {result}")
@@ -316,32 +310,42 @@ def send_message(
 TOOL = {
     "name": "send_message",
     "description": (
-        "Sends a text message via WhatsApp, Telegram, or another messaging "
-        "platform. Write 'message_text' in the USER'S OWN LANGUAGE, exactly "
-        "what they asked to be said. If the result says the message was NOT "
-        "sent, repeat that plainly along with the reason it gives — never "
-        "tell the user a message was sent unless the result said it was."
+        "Composes, drafts, and sends messages through WhatsApp, Telegram, or other messaging "
+        "platforms. For WhatsApp, supports recipient contact names, relationship nicknames "
+        "(e.g. 'Mom', 'Alex', 'brother'), or international phone numbers (e.g. '+919876543210'). "
+        "Supports 'mode': 'send' (automatically sends) or 'draft' (composes message in chat input "
+        "box for the user to review before sending). Write 'message_text' in the USER'S OWN LANGUAGE, "
+        "exactly what they requested to be communicated. If the result says the message was NOT sent, "
+        "repeat that plainly along with the specific reason."
     ),
     "parameters": {
         "type": "OBJECT",
         "properties": {
             "receiver": {
                 "type": "STRING",
-                "description": "Recipient contact name"
+                "description": "Recipient contact name, relationship alias (e.g. 'Mom', 'boss'), or phone number (e.g. '+919876543210')"
             },
             "message_text": {
                 "type": "STRING",
-                "description": "The message to send"
+                "description": "The exact message content to compose and send or draft"
             },
             "platform": {
                 "type": "STRING",
-                "description": "Platform: WhatsApp, Telegram, etc."
+                "description": "Messaging platform: 'whatsapp' (default), 'telegram', 'discord', 'signal', 'instagram', 'messenger'"
+            },
+            "mode": {
+                "type": "STRING",
+                "enum": ["send", "draft"],
+                "description": "'send' to dispatch the message immediately, or 'draft' to compose into the WhatsApp input box without pressing Enter so user can visually inspect it"
+            },
+            "phone_number": {
+                "type": "STRING",
+                "description": "Optional direct phone number with country code if receiver is a contact name or nickname"
             }
         },
         "required": [
             "receiver",
-            "message_text",
-            "platform"
+            "message_text"
         ]
     },
     "handler": send_message,

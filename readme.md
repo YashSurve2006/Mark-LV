@@ -191,12 +191,14 @@ flowchart TD
 | **Hardware Confirmation** | Safety | Irreversible actions (Shutdown, Restart, WiFi Toggle) require physical UI confirmation. |
 | **Video on the HUD** | Media | Play YouTube and local videos directly inside the HUD avatar viewport. |
 | **Remote Dashboard** | Mobility | Mobile web dashboard accessible via QR code with self-signed TLS security. |
+| **📨 WhatsApp Automation** | Messaging | Compose, draft, and send WhatsApp messages directly via protocol deep-link, desktop UWP app, or web. Includes contact memory & safe drafting mode. |
 
 ---
 
 ## 🆕 What's New in Mark LV
 
 - 📺 **HUD Video Player:** Replaces avatar viewport on-demand for YouTube or local media with dual-stream synchronization and smart microphone auto-ducking.
+- 📨 **Advanced WhatsApp Messaging Engine:** Deep-link protocol, Windows Desktop/UWP UI automation, contact and relationship resolution from memory, and safe review drafting mode.
 - 🪜 **Unified 9-Tier Model Ladder:** Centralized fallback in `core/gemini.py` with 5-minute quota cooldowns and 30-minute outage backoffs.
 - ⚡ **Ultra-Fast PDF Page Navigation:** Sub-50ms page jumping via in-document motor control and instant hash reloading.
 - 🎛️ **Split Drawer Interface:** Clean separation of system configurations (`SETUP`) from daily toggles (`CONTROLS`).
@@ -374,7 +376,7 @@ Mark-LV/
 │   ├── weather_report.py       # Real-time weather forecasts, meteorological data & alerts
 │   ├── flight_finder.py        # Live flight tracker, route search & arrival status
 │   ├── reminder.py             # Natural language alarm scheduler & desktop notifications
-│   ├── send_message.py         # Outbound messaging dispatcher (webhooks, email, WhatsApp)
+│   ├── send_message.py         # Outbound messaging dispatcher (WhatsApp multi-tier, Telegram, Discord)
 │   ├── workflow.py             # Multi-command chained workflows & custom macro sequences
 │   ├── proactive.py            # Ambient proactive intelligence & contextual user prompts
 │   ├── game_updater.py         # Game library update monitor & patch status verifier
@@ -415,6 +417,8 @@ Mark-LV/
 │
 ├── plugins/                    # Drop-in Extensible Plugin Ecosystem
 │   ├── _template.py            # Boilerplate starter template for custom user plugins
+│   ├── _whatsapp_core.py       # Core multi-tier WhatsApp driver (Protocol, Desktop, Web)
+│   ├── whatsapp.py             # Dedicated WhatsApp plugin (compose, draft, send, contacts)
 │   ├── doc_writer.py           # Technical documentation, LaTeX & Markdown generator plugin
 │   └── pdf_tutor.py            # Interactive PDF reading, educational analyzer & quiz tutor
 │
