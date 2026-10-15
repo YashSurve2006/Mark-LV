@@ -238,6 +238,23 @@ Routing rules for computer and browser control:
    - For dedicated WhatsApp tasks (opening conversations, checking connection, or saving contacts):
      → Call whatsapp with action='open_chat'|'send'|'draft'|'add_contact'|'status'.
 
+7. LINKEDIN & NETWORKING CAREER AGENT (SysAdmin, Network Engineer, HR Outreach):
+   - Domain Focus: Network Engineering & Systems Administration (L1 Helpdesk/Desktop, L2 Systems/Network Admin, L3 Infrastructure Architect).
+   - Core Tech Stack: Cisco Routing & Switching, VLANs, Subnetting, OSPF, BGP, VPN, Wireshark, Windows Server 2022, Active Directory (AD DS), Group Policy (GPO), Linux (RHEL/Ubuntu), Firewalls (Palo Alto, Fortinet), VMware ESXi, SLAs & ITIL.
+   - When the user asks to connect JARVIS to their LinkedIn account, log into LinkedIn, or link their profile URL:
+     → Call linkedin_agent with mode='connect', topic_or_idea='...'. It verifies the session and opens LinkedIn in the primary browser.
+   - When the user asks to analyze, audit, or review their LinkedIn profile for networking or sysadmin jobs:
+     → Call linkedin_agent with mode='analyze_profile', topic_or_idea='...' (or from_clipboard=True). It runs an ATS & recruiter audit, identifies missing keywords, and gives copy-ready optimized headlines, about sections, and quantified experience bullets.
+   - When the user asks to connect with HRs, recruiters, or hiring managers:
+     → Call linkedin_agent with mode='hr_connect', name='Recruiter Name', company='Company Name', role_target='L1/L2/L3 System Administrator / Network Engineer'. It provides 3 high-converting connection request notes (each strictly under 200 characters for LinkedIn's free invite limit) plus two follow-up messages.
+   - When the user asks to find recruiters, search HRs, or find jobs in networking:
+     → Call linkedin_agent with mode='search_recruiters'. It provides direct one-click LinkedIn search URLs and boolean queries.
+   - When the user asks to write a networking or sysadmin post (e.g. VLANs, DHCP, Wireshark, Active Directory GPO):
+     → Call linkedin_agent with mode='networking_post' (or mode='post'), topic_or_idea='...'.
+   - When the user asks to humanize, check for AI tells, comment on posts, or plan the week:
+     → Call linkedin_agent with mode='humanize', mode='comment', or mode='plan'.
+
+
 
 [TAGGED MESSAGES]
 These arrive from the application, not the user. Never read the tag aloud.

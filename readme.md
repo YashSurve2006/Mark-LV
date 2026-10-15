@@ -19,7 +19,7 @@
 
 > 🎙️ **A real-time voice AI that can hear, see, speak, and autonomously operate your computer with sub-50ms native reflexes.** Zero subscription fees, zero cloud lock-in, and total digital autonomy.
 
-[⚡ Quick Start](#-quick-start) • [🖥️ Live UI Showcase](#️-live-interface--actual-screenshots) • [🌐 Chrome & OS Control](#-autonomous-chrome--computer-control) • [📨 WhatsApp Engine](#-whatsapp--desktop-messaging) • [🏗️ Architecture](#️-system-architecture) • [🔧 Setup & Run Guide](#-step-by-step-setup-and-run-guide) • [👤 Developer](#-developer--community)
+[⚡ Quick Start](#-quick-start) • [🖥️ Live UI Showcase](#️-live-interface--actual-screenshots) • [🌐 Chrome & OS Control](#-autonomous-chrome--computer-control) • [📨 WhatsApp Engine](#-whatsapp--desktop-messaging) • [💼 LinkedIn Career Agent](#-linkedin--networking-domain-career-agent) • [🏗️ Architecture](#️-system-architecture) • [🔧 Setup & Run Guide](#-step-by-step-setup-and-run-guide) • [👤 Developer](#-developer--community)
 
 </div>
 
@@ -31,6 +31,7 @@
 - [🖥️ Live Interface & Actual Screenshots](#️-live-interface--actual-screenshots)
 - [🌐 Autonomous Chrome & Computer Control](#-autonomous-chrome--computer-control)
 - [📨 WhatsApp & Desktop Messaging](#-whatsapp--desktop-messaging)
+- [💼 LinkedIn & Networking Domain Career Agent](#-linkedin--networking-domain-career-agent)
 - [🏗️ System Architecture](#️-system-architecture)
 - [🚀 Core Capabilities](#-core-capabilities)
 - [🗣️ Voice Commands Cheatsheet](#️-voice-commands-cheatsheet)
@@ -169,6 +170,48 @@ JARVIS Mark LV includes an intelligent, multi-tier messaging pipeline designed t
 
 ---
 
+## 💼 LinkedIn & Networking Domain Career Agent
+
+JARVIS Mark LV features a dedicated **LinkedIn Career & Networking Growth Engine** specifically architected to expand your technical connections, engage with active **IT Recruiters and Hiring Managers**, and position you for high-impact roles across the **Networking & Infrastructure domain**:
+
+- **Target Job Roles:** L1/L2/L3 System Administrator, Network Engineer, NOC Analyst, Infrastructure Support Specialist.
+- **Core Technical Coverage:** Cisco Routing & Switching, VLANs, Subnetting, OSPF, BGP, IPsec/SSL VPNs, Wireshark, Windows Server 2022, Active Directory Domain Services (AD DS), Group Policy Objects (GPO), Linux (RHEL/Ubuntu), Fortinet/Palo Alto Firewalls, VMware ESXi, SLAs & ITIL.
+
+<div align="center">
+  <table width="100%">
+    <tr>
+      <td width="33%" align="center">
+        <b>🤝 HR & Recruiter Connection Hunter</b><br/>
+        Validates connection request notes strictly under <b>200 characters</b> (LinkedIn free limit) with 2-step follow-up sequences.
+      </td>
+      <td width="33%" align="center">
+        <b>🔎 1-Click Recruiter Search Hub</b><br/>
+        Direct Boolean search queries and URLs to find active HRs, Tech Recruiters & Hiring Managers hiring for Cisco, AD, and Linux.
+      </td>
+      <td width="33%" align="center">
+        <b>🛡️ Zero-Dependency Humanizer</b><br/>
+        Strips invisible Unicode markers, typography tells & 113 stock AI slop terms, scoring drafts against a 5-check panel.
+      </td>
+    </tr>
+  </table>
+</div>
+
+### Key Career Capabilities
+
+- **🔍 Recruiter & ATS Profile Audit:**
+  - Audits your LinkedIn profile against what IT infrastructure recruiters search for.
+  - Generates copy-ready **SEO headlines (220 chars max)**, **high-converting 'About' hooks**, and **quantified experience bullets** (e.g. *99.9% uptime*, *Wireshark latency diagnostics*, *AD GPO management*).
+- **📨 Strict <200 Char Connection Notes:**
+  - Avoids the dreaded LinkedIn character cutoff. Crafts 3 targeted invite styles (Recruiter Focus, Tech Stack Focus, Hiring Manager Focus) strictly under 200 characters, plus automated 24-hour and 4-day follow-up messages.
+- **✍️ Technical Networking & SysAdmin Posts:**
+  - Turns raw troubleshooting stories into high-dwell technical posts using 21 proven hook formulas (`hooks.json`). Covers VLAN isolation, rogue DHCP tracking, Active Directory GPO recovery, and L1 vs L2 vs L3 root-cause triage.
+- **🛡️ 5-Check AI Detection Panel (`detect.py`):**
+  - Measures **Burstiness** (sentence length variation), **Specificity** (concrete technical markers per 100 words), **Slop Density** (lexicon hits against `slop.json`), **Fingerprint** (invisible tokens, em dashes, curly quotes), and **Voice** (contractions and structural tells).
+- **📋 Zero-Friction Clipboard Integration:**
+  - All drafted posts, connection notes, and audit reports are automatically copied to your Windows clipboard for instantaneous pasting into LinkedIn.
+
+---
+
 ## 🏗️ System Architecture
 
 JARVIS Mark LV separates voice processing, cognitive planning, and motor execution into decoupled, non-blocking pipelines:
@@ -232,6 +275,7 @@ flowchart TD
 | **Video on the HUD** | Media | Play YouTube and local videos directly inside the HUD avatar viewport. |
 | **Remote Dashboard** | Mobility | Mobile web dashboard accessible via QR code with self-signed TLS security. |
 | **📨 WhatsApp Automation** | Messaging | Compose, draft, and send WhatsApp messages directly via protocol deep-link, desktop UWP app, or web. Includes contact memory & safe drafting mode. |
+| **💼 LinkedIn Career Agent** | Career & Network | Automated HR connection notes (<200 chars), ATS profile auditor, recruiter search hub, and 5-check local humanizer for L1/L2/L3 SysAdmin & Network Engineers. |
 
 ---
 
@@ -244,6 +288,12 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 | **🌐 Chrome & Documents** | *"Scroll down to page 7 in this PDF"* | Sub-40ms native motor jump straight to page 7 without re-rendering delays. |
 | | *"Switch to my GitHub pull request tab"* | Matches open tab titles via Chromium Quick Tabs (`Ctrl+Shift+A`). |
 | | *"Read what this webpage says"* | Zero-token DOM inspection extracting visible page content in <100ms. |
+| **💼 LinkedIn & HR Networking** | *"Connect to my LinkedIn"* | Verifies session and opens LinkedIn in your primary browser. |
+| | *"Analyze my LinkedIn for Network Engineer and SysAdmin jobs"* | Audits profile, flags keyword gaps, and copies optimized headline & about section. |
+| | *"Write a connection note for an HR at Cisco for a Network Engineer role"* | Generates 3 notes (<200 chars) + 2 follow-ups ready on clipboard. |
+| | *"Find recruiters hiring Network Engineers"* | Generates direct boolean queries and opens live recruiter search feed. |
+| | *"Write a networking post about Wireshark and DHCP snooping"* | Drafts technical post, cleans AI tells, scores on 5-check panel, and copies to clipboard. |
+| | *"Humanize this draft and copy it to my clipboard"* | Strips invisible tokens and AI slop, scoring against the detection panel. |
 | **📨 WhatsApp Automation** | *"Send a WhatsApp to Mom saying I'm on my way"* | Auto-resolves Mom's phone number and sends via WhatsApp Desktop app. |
 | | *"Draft a WhatsApp message to Alex about lunch"* | Stages draft in WhatsApp compose box for visual review before sending. |
 | | *"Save contact Rahul with number +91 98765 43210"* | Persists Rahul's details into `memory/long_term.json`. |
@@ -261,6 +311,7 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 
 ## 🆕 What's New in Mark LV
 
+- 💼 **LinkedIn & Networking Career Agent:** Dedicated career growth engine for Network Engineers and L1/L2/L3 System Administrators. Features strict <200 character HR connection notes, 1-click recruiter search hubs, ATS profile auditing, and zero-dependency local humanizing.
 - 📺 **HUD Video Player:** Replaces avatar viewport on-demand for YouTube or local media with dual-stream synchronization and smart microphone auto-ducking.
 - 📨 **Advanced WhatsApp Messaging Engine:** Deep-link protocol, Windows Desktop/UWP UI automation, contact and relationship resolution from memory, and safe review drafting mode.
 - 🪜 **Unified 9-Tier Model Ladder:** Centralized fallback in `core/gemini.py` with 5-minute quota cooldowns and 30-minute outage backoffs.
@@ -493,7 +544,6 @@ Mark-LV/
 │   ├── installer.py            # Runtime dependency verifier & dynamic module helper
 │   ├── stt.py                  # Offline / online speech-to-text transcription fallback
 │   └── tts.py                  # Text-to-speech synthesis & audio output playback stream
-│
 ├── dashboard/                  # Mobile & Web Remote Companion Subsystem
 │   ├── server.py               # Local HTTPS/WebSocket server with self-signed TLS & token auth
 │   └── static/                 # Companion web interface frontend assets
@@ -511,10 +561,32 @@ Mark-LV/
 │   ├── _whatsapp_core.py       # Core multi-tier WhatsApp driver (Protocol, Desktop, Web)
 │   ├── whatsapp.py             # Dedicated WhatsApp plugin (compose, draft, send, contacts)
 │   ├── doc_writer.py           # Technical documentation, LaTeX & Markdown generator plugin
-│   └── pdf_tutor.py            # Interactive PDF reading, educational analyzer & quiz tutor
+│   ├── pdf_tutor.py            # Interactive PDF reading, educational analyzer & quiz tutor
+│   ├── linkedin_agent.py       # LinkedIn growth agent (post generation, HR outreach, profile audit)
+│   └── linkedin/               # LinkedIn intelligence engine
+│       ├── engine.py           # Core orchestrator for hooks, humanizer, detector & HR hunter
+│       ├── humanize.py         # 3-pass local humanizer (invisible chars, typography, slop replacement)
+│       ├── detect.py           # 5-check local AI detection panel (Burstiness, Specificity, Slop, Fingerprint, Voice)
+│       ├── hooks.json          # 21 proven viral hook formulas
+│       ├── rubric.json         # 12-point recruiter & profile evaluation rubric
+│       └── slop.json           # 113 stock AI vocabulary definitions & replacements
+│
+├── .agents/skills/             # Universal Agent Skills for Antigravity & Claude
+│   ├── li-post/                # Hook formula post generator skill
+│   ├── li-human/               # AI fingerprint & slop stripping skill
+│   ├── li-comment/             # Feed engagement & archetype commenting skill
+│   ├── li-reply/               # Comment thread triage & reply generator skill
+│   ├── li-profile/             # Profile audit & rewrite skill
+│   ├── li-plan/                # Weekly calendar & target account planning skill
+│   ├── li-carousel/            # Document post slide-by-slide copy skill
+│   ├── li-repurpose/           # Long-form content repurposing skill
+│   ├── li-dm/                  # <200 char connection invite note skill
+│   ├── li-inbox/               # Inbound DM triage skill
+│   └── li-audit/               # Post-mortem engagement & reach analytics skill
 │
 └── config/                     # Configuration Templates & Application Resources
     ├── api_keys.json.example   # Clean template for API keys (Gemini, GitHub, etc.)
+    ├── linkedin_voice.md       # Tailored LinkedIn voice & tone profile for SysAdmin & Networking
     ├── jarvis.ico              # Native application icon
     └── certs/                  # Auto-generated self-signed TLS certificates for local HTTPS
 ```
@@ -528,6 +600,7 @@ Mark-LV/
 | **3D Holographic HUD** | Pure-software 3D facial mesh rendering with zero GPU overhead, audio oscilloscope, telemetry gauges. | `ui.py`, `core/avatar.py`, `core/avatar_mesh.py`, `core/face_model.obj` |
 | **Motor & Browser Engine** | Sub-50ms native mouse, keyboard, active Chrome tab interaction, instant PDF jumping, settings control. | `actions/computer_control.py`, `actions/computer_settings.py`, `actions/browser_control.py` |
 | **Messaging & WhatsApp** | Multi-tier WhatsApp automation (protocol, desktop UWP, web), contact memory, safe drafting mode. | `actions/send_message.py`, `plugins/_whatsapp_core.py`, `plugins/whatsapp.py` |
+| **💼 LinkedIn & Career Agent** | Recruiter connection outreach (<200 chars), ATS profile auditor, recruiter search hub, and 5-check humanizer. | `plugins/linkedin_agent.py`, `plugins/linkedin/engine.py`, `config/linkedin_voice.md` |
 | **Autonomous Dev Agent** | Multi-file codebase synthesis, unit test execution, and IDE workspace launching from voice commands. | `actions/dev_agent.py`, `actions/code_helper.py`, `core/coder_engine.py` |
 | **Safety & Memory** | Universal undo journal, hardware confirmation gates, persistent local recallable memory. | `core/undo.py`, `core/confirm.py`, `memory/memory_manager.py` |
 | **Remote Companion** | Encrypted mobile web dashboard accessible via QR code with self-signed TLS encryption. | `dashboard/server.py`, `dashboard/static/app.html` |
