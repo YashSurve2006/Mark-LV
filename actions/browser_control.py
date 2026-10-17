@@ -1545,10 +1545,73 @@ def browser_control(
             result = sess.run(sess.close_tab())
         elif action == "screenshot":
             result = sess.run(sess.screenshot(params.get("path")))
-        elif action == "back":
+        elif action in ("back", "chrome_back"):
             result = sess.run(sess.back())
-        elif action == "forward":
+        elif action in ("forward", "chrome_forward"):
             result = sess.run(sess.forward())
+        elif action in ("stop", "chrome_stop"):
+            from actions.computer_control import _chrome_stop
+            result = _chrome_stop()
+        elif action in ("home", "chrome_home"):
+            from actions.computer_control import _chrome_home
+            result = _chrome_home()
+        elif action in ("bookmark_page", "chrome_bookmark_page", "bookmark"):
+            from actions.computer_control import _chrome_bookmark_page
+            result = _chrome_bookmark_page(params.get("folder", ""))
+        elif action in ("bookmark_all_tabs", "chrome_bookmark_all_tabs"):
+            from actions.computer_control import _chrome_bookmark_all_tabs
+            result = _chrome_bookmark_all_tabs()
+        elif action in ("save_page", "chrome_save_page"):
+            from actions.computer_control import _chrome_save_page
+            result = _chrome_save_page()
+        elif action in ("copy_clean_url", "chrome_copy_clean_url"):
+            from actions.computer_control import _chrome_copy_clean_url
+            result = _chrome_copy_clean_url()
+        elif action in ("copy_markdown_link", "chrome_copy_markdown_link"):
+            from actions.computer_control import _chrome_copy_markdown_link
+            result = _chrome_copy_markdown_link()
+        elif action in ("open_extensions", "chrome_open_extensions", "extensions"):
+            from actions.computer_control import _chrome_open_extensions
+            result = _chrome_open_extensions()
+        elif action in ("open_settings", "chrome_open_settings", "settings"):
+            from actions.computer_control import _chrome_open_settings
+            result = _chrome_open_settings(params.get("subpage", ""))
+        elif action in ("open_flags", "chrome_open_flags", "flags"):
+            from actions.computer_control import _chrome_open_flags
+            result = _chrome_open_flags(params.get("query", ""))
+        elif action in ("open_passwords", "chrome_open_passwords", "passwords"):
+            from actions.computer_control import _chrome_open_passwords
+            result = _chrome_open_passwords()
+        elif action in ("side_panel", "chrome_side_panel"):
+            from actions.computer_control import _chrome_side_panel
+            result = _chrome_side_panel()
+        elif action in ("reading_mode", "chrome_reading_mode"):
+            from actions.computer_control import _chrome_reading_mode
+            result = _chrome_reading_mode()
+        elif action in ("mute_tab", "chrome_mute_tab", "mute"):
+            from actions.computer_control import _chrome_mute_tab
+            result = _chrome_mute_tab()
+        elif action in ("pin_tab", "chrome_pin_tab", "pin"):
+            from actions.computer_control import _chrome_pin_tab
+            result = _chrome_pin_tab()
+        elif action in ("scroll_page", "chrome_scroll_page"):
+            from actions.computer_control import _chrome_scroll_page
+            result = _chrome_scroll_page(params.get("direction", "down"), params.get("amount", "page"))
+        elif action in ("find_next", "chrome_find_next"):
+            from actions.computer_control import _chrome_find_next
+            result = _chrome_find_next()
+        elif action in ("find_prev", "chrome_find_prev"):
+            from actions.computer_control import _chrome_find_prev
+            result = _chrome_find_prev()
+        elif action in ("cdp_tabs", "chrome_cdp_tabs"):
+            from actions.computer_control import _chrome_cdp_tabs
+            result = _chrome_cdp_tabs(int(params.get("port", 9222)))
+        elif action in ("cdp_activate", "chrome_cdp_activate"):
+            from actions.computer_control import _chrome_cdp_activate
+            result = _chrome_cdp_activate(params.get("target", params.get("tab", "")), int(params.get("port", 9222)))
+        elif action in ("cdp_close", "chrome_cdp_close"):
+            from actions.computer_control import _chrome_cdp_close
+            result = _chrome_cdp_close(params.get("target", params.get("tab", "")), int(params.get("port", 9222)))
         elif action == "reload":
             result = sess.run(sess.reload(bool(params.get("hard", False))))
         elif action in ("fullscreen", "toggle_fullscreen"):
@@ -1665,7 +1728,10 @@ TOOL = {
         "get_local_storage | page_source. "
         "Advanced: evaluate_script | set_local_storage | clear_cookies | accept_dialog | dismiss_dialog | "
         "highlight_element | wait_for_navigation | zoom | find_text | history | downloads | bookmarks | "
-        "fullscreen | task_manager | print_pdf | clear_data | launch_debug | switch | list_browsers | close | close_all."
+        "fullscreen | task_manager | print_pdf | clear_data | launch_debug | switch | list_browsers | close | close_all | "
+        "stop | home | bookmark_page | bookmark_all_tabs | save_page | copy_clean_url | copy_markdown_link | "
+        "open_extensions | open_settings | open_flags | open_passwords | side_panel | reading_mode | "
+        "mute_tab | pin_tab | scroll_page | find_next | find_prev | cdp_tabs | cdp_activate | cdp_close."
     ),
     "parameters": {
         "type": "OBJECT",
@@ -1673,14 +1739,15 @@ TOOL = {
             "action": {
                 "type": "STRING",
                 "description": (
-                    "Navigation: go_to | search | new_tab | switch_tab | list_tabs | close_tab | duplicate_tab | back | forward | reload | goto_page. "
+                    "Navigation: go_to | search | new_tab | switch_tab | list_tabs | close_tab | duplicate_tab | back | forward | reload | goto_page | stop | home. "
                     "Interaction: click | right_click | double_click | hover | drag_and_drop | type | fill_form | "
-                    "smart_click | smart_type | select_option | press | scroll. "
+                    "smart_click | smart_type | select_option | press | scroll | scroll_page | mute_tab | pin_tab. "
                     "Inspection: get_text | get_url | get_page_title | get_all_links | screenshot | "
-                    "get_cookies | get_local_storage | page_source. "
+                    "get_cookies | get_local_storage | page_source | copy_clean_url | copy_markdown_link | find_next | find_prev. "
                     "Advanced: evaluate_script | set_local_storage | clear_cookies | accept_dialog | dismiss_dialog | "
-                    "highlight_element | wait_for_navigation | zoom | find_text | history | downloads | bookmarks | "
-                    "fullscreen | task_manager | print_pdf | clear_data | launch_debug | switch | list_browsers | close | close_all."
+                    "highlight_element | wait_for_navigation | zoom | find_text | history | downloads | bookmarks | bookmark_page | bookmark_all_tabs | save_page | "
+                    "fullscreen | task_manager | print_pdf | clear_data | launch_debug | switch | list_browsers | close | close_all | "
+                    "open_extensions | open_settings | open_flags | open_passwords | side_panel | reading_mode | cdp_tabs | cdp_activate | cdp_close."
                 )
             },
             "page": {

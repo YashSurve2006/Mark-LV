@@ -124,9 +124,22 @@ JARVIS Mark LV works directly on your **active, logged-in Google Chrome browser*
   - Natural relative scrolling (*"scroll down 3 pages"*, *"next page"*, *"scroll up 2 pages"*) with zero AI vision model latency.
 - **🔍 Zero-Token Active Address & Page Reader:**
   - Reads active tab URLs and full-page text in under 100ms without consuming Gemini input tokens or screenshot bandwidth.
-- **📑 Seamless Tab Navigation:**
+- **📑 Seamless Tab Navigation & Lifecycle:**
   - Switch tabs instantly by name or keyword using native Chromium Quick Tab search (`Ctrl+Shift+A`).
-  - Open new tabs, close tabs, duplicate tabs, reload (`Ctrl+F5`), and zoom.
+  - Open new tabs, close tabs, duplicate tabs, reload (`Ctrl+F5`), and zoom (`Ctrl + / - / 0`).
+  - Pin/unpin tabs and toggle tab mute audio on demand.
+- **🔗 Clean URL & Markdown Productivity:**
+  - **Auto-Stripping Clean URL (`chrome_copy_clean_url`):** Automatically strips all tracking and analytics parameters (`utm_source`, `utm_medium`, `fbclid`, `gclid`, `si`, `trk`, etc.) from the active tab and copies the pristine link straight to your clipboard.
+  - **1-Click Markdown Link (`chrome_copy_markdown_link`):** Formats active tab title and clean URL into `[Page Title](URL)` ready for immediate pasting into GitHub, Obsidian, Notion, or Slack.
+- **🧭 Flow Navigation & Bookmarking:**
+  - Fast history navigation: `chrome_back` (`Alt+Left`), `chrome_forward` (`Alt+Right`), `chrome_stop` (`Escape`), and `chrome_home` (`Alt+Home`).
+  - 1-click active bookmarking (`chrome_bookmark_page`) and bulk bookmarking (`chrome_bookmark_all_tabs`).
+  - Full-page jump scrolling: Top of page (`Home`), Bottom of page (`End`), Page Down/Up.
+- **⚙️ Native Chrome Hubs & Extensions:**
+  - Instant direct navigation to internal Chrome dashboards: `chrome://extensions`, `chrome://settings`, `chrome://password-manager`, `chrome://flags`, and `chrome://read-later` (Reading mode / side panel).
+- **🔌 Chrome DevTools Protocol (CDP) Direct Bridge:**
+  - Connects directly to running Chromium debugging instances (`--remote-debugging-port=9222`) via lightweight local JSON API (`http://127.0.0.1:9222/json`).
+  - Query all open tabs, switch tabs, inspect target IDs, or close background tabs with zero mouse disruption.
 - **💻 Autonomous Coding & Agent IDE Integration:**
   - Ask JARVIS: *"Build a weather FastAPI service in Python and test it"* $\rightarrow$ JARVIS triggers `dev_agent` to draft architecture, generate source files, run unit tests, and open the workspace in VS Code or Antigravity IDE.
 - **🖱️ Motor & Desktop Grounding:**
@@ -345,7 +358,16 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 
 | Category | Example Voice Command | What JARVIS Executes |
 |:---|:---|:---|
-| **🌐 Chrome & Browser** | *"Right-click the save button and select 'Save As'"* | Right-click context menu on any identified element. |
+| **🌐 Chrome & Browser** | *"Go back in Chrome"* / *"Go forward"* | Sub-30ms history navigation (`chrome_back` / `chrome_forward`). |
+| | *"Stop loading"* / *"Go to home page"* | Cancels page loading or returns to homepage (`chrome_stop` / `chrome_home`). |
+| | *"Bookmark this page"* | Saves current page to Chrome bookmarks bar (`chrome_bookmark_page`). |
+| | *"Copy clean link"* | Strips tracking/analytics parameters and copies pure link to clipboard (`chrome_copy_clean_url`). |
+| | *"Copy as markdown link"* | Copies formatted `[Page Title](URL)` ready for GitHub/Notion (`chrome_copy_markdown_link`). |
+| | *"Scroll to top of the page"* / *"Scroll to bottom"* | Instant in-document navigation (`Home` / `End`). |
+| | *"Mute this tab"* / *"Pin this tab"* | Toggles tab audio state or tab pinning directly on your active browser. |
+| | *"Open Chrome extensions"* / *"Open Chrome flags"* | Instant navigation to `chrome://extensions` or `chrome://flags`. |
+| | *"List Chrome tabs via CDP"* | Directly queries Chromium DevTools Protocol on port 9222. |
+| | *"Right-click the save button and select 'Save As'"* | Right-click context menu on any identified element. |
 | | *"Hover over the profile menu"* | Hover to reveal tooltip or dropdown submenu. |
 | | *"Drag the task card to the Done column"* | Smooth CSS drag-and-drop between Kanban elements. |
 | | *"Select 'India' in the country dropdown"* | Selects `<option>` in a `<select>` by label. |
@@ -383,6 +405,7 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 
 ## 🆕 What's New in Mark LV
 
+- 🌐 **Expanded Native Chrome Interactions Suite:** Added 20+ native Chrome controls — history navigation (`chrome_back`, `chrome_forward`, `chrome_stop`, `chrome_home`), clean URL copy (strips tracking/analytics tags), 1-click Markdown link copy (`[Title](URL)`), tab bookmarking (`chrome_bookmark_page`, `chrome_bookmark_all_tabs`), tab muting & pinning, instant scroll to top/bottom (`Home`/`End`), direct navigation to internal hubs (`chrome://extensions`, `chrome://settings`, `chrome://password-manager`, `chrome://flags`, `chrome://read-later`), and direct Chrome DevTools Protocol (CDP) JSON querying.
 - 🧠 **Visual Web Agent (`visual_web_agent`):** New dedicated advanced browser intelligence module. Implements **Set-of-Marks (SoM) visual grounding** (numbered element overlays), **Accessibility Tree (A11y) semantic actuation** (ARIA role / label / placeholder search), **scroll-and-seek loops** (autonomous page scrolling to find off-screen elements), and **4-strategy verified field editing** (read-back confirmation with JS native value setter fallback). Handles LinkedIn, Gmail, SPAs, and any dynamic web app reliably.
 - 🖱️ **12 New Advanced Browser Actions:** `right_click`, `double_click`, `hover`, `drag_and_drop`, `select_option`, `get_cookies`, `clear_cookies`, `get_local_storage`, `set_local_storage`, `get_all_links`, `get_page_title`, `wait_for_navigation`, `accept_dialog`, `dismiss_dialog`, `highlight_element` — all wired into the `browser_control` tool and auto-discoverable.
 - 💼 **LinkedIn & Networking Career Agent:** Dedicated career growth engine for Network Engineers and L1/L2/L3 System Administrators. Features strict <200 character HR connection notes, 1-click recruiter search hubs, ATS profile auditing, and zero-dependency local humanizing.

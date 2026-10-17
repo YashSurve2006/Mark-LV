@@ -199,7 +199,33 @@ Routing rules for computer and browser control:
      * Jump to page number: computer_control action='chrome_pdf_goto_page', page=N (e.g. "scroll to page 5", "scroll down to page 8", "scroll to page number 12", "go to page 10", "jump to page 25", "first page" page=1).
      * Scroll relative pages: computer_control action='chrome_pdf_goto_page', relative_pages=N (e.g. "scroll down 3 pages" relative_pages=3, "scroll up 2 pages" relative_pages=-2, "next page" relative_pages=1, "previous page" relative_pages=-1).
      * General fast scroll: computer_control action='scroll', direction='down'|'up', amount=600.
-   - Browser & tab tools: chrome_history, chrome_downloads, chrome_bookmarks, chrome_incognito, chrome_inspect, chrome_fullscreen, chrome_task_manager, chrome_print_pdf, chrome_page_source, chrome_clear_data, chrome_pdf_goto_page, right_click, double_click, hover, drag_and_drop, select_option, get_cookies, clear_cookies, get_local_storage, set_local_storage, get_all_links, get_page_title, wait_for_navigation, accept_dialog, dismiss_dialog, highlight_element.
+    - History & navigation:
+      * Back in history: computer_control action='chrome_back' (or browser_control back).
+      * Forward in history: computer_control action='chrome_forward' (or browser_control forward).
+      * Stop loading: computer_control action='chrome_stop' (or browser_control stop).
+      * Home page: computer_control action='chrome_home' (or browser_control home).
+    - Page scrolling & document reading:
+      * Scroll to top/bottom: computer_control action='chrome_scroll_page', direction='top'|'bottom'.
+      * Page down / page up: computer_control action='chrome_scroll_page', direction='down'|'up', amount='page'|'half'.
+      * PDF page jump: computer_control action='chrome_pdf_goto_page', page=N (or relative_pages=N).
+    - URL & clipboard productivity:
+      * Copy clean URL (strips UTM/tracking tags): computer_control action='chrome_copy_clean_url'.
+      * Copy markdown link [Title](Clean URL): computer_control action='chrome_copy_markdown_link'.
+    - Bookmarks, tabs & media:
+      * Bookmark active page: computer_control action='chrome_bookmark_page' (or browser_control bookmark_page).
+      * Bookmark all tabs: computer_control action='chrome_bookmark_all_tabs'.
+      * Save webpage: computer_control action='chrome_save_page'.
+      * Mute/unmute tab audio: computer_control action='chrome_mute_tab'.
+      * Pin/unpin tab: computer_control action='chrome_pin_tab'.
+      * Side panel / reading mode: computer_control action='chrome_reading_mode' or 'chrome_side_panel'.
+      * Find next / prev search match: computer_control action='chrome_find_next' or 'chrome_find_prev'.
+    - Internal Chrome hubs & developer tools:
+      * Extensions: computer_control action='chrome_open_extensions'.
+      * Settings: computer_control action='chrome_open_settings' (subpage='passwords'|'autofill'|'privacy').
+      * Flags & experiments: computer_control action='chrome_open_flags' (query='...').
+      * Password manager: computer_control action='chrome_open_passwords'.
+      * Remote Debugging / CDP: chrome_launch_debug (port=9222), chrome_cdp_tabs, chrome_cdp_activate, chrome_cdp_close.
+    - Full Browser & DOM suite: chrome_history, chrome_downloads, chrome_bookmarks, chrome_incognito, chrome_inspect, chrome_fullscreen, chrome_task_manager, chrome_print_pdf, chrome_page_source, chrome_clear_data, right_click, double_click, hover, drag_and_drop, select_option, get_cookies, clear_cookies, get_local_storage, set_local_storage, get_all_links, get_page_title, wait_for_navigation, accept_dialog, dismiss_dialog, highlight_element.
    - Advanced browser interactions & visual grounding (complex SPAs, LinkedIn, Gmail, web forms):
      -> Call visual_web_agent:
        * Click element by semantic description/role: action='a11y_click', description='...'

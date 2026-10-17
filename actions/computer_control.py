@@ -10,6 +10,8 @@ import shutil
 import string
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 
 for _stream in ("stdout", "stderr"):
     try:
@@ -1824,6 +1826,265 @@ def _chrome_pdf_goto_page(page: int | str = 1, relative_pages: int | None = None
     return f"Scrolled to PDF page {p} in Chrome."
 
 
+def _clean_url(url: str) -> str:
+    """Strips common tracking, referral, and analytics query parameters from URLs."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if not parsed.query:
+            return url
+        tracking_params = {
+            "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+            "fbclid", "gclid", "gclsrc", "dclid", "zanpid", "msclkid", "mc_eid",
+            "_hsenc", "_hsmi", "igshid", "si", "trk"
+        }
+        q = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        clean_q = [(k, v) for k, v in q if k.lower() not in tracking_params and not k.lower().startswith("utm_")]
+        clean_query = urllib.parse.urlencode(clean_q)
+        return urllib.parse.urlunparse((
+            parsed.scheme, parsed.netloc, parsed.path, parsed.params, clean_query, parsed.fragment
+        ))
+    except Exception:
+        return url
+
+
+def _chrome_back() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _hotkey("alt", "left")
+    return "Navigated back in Chrome history."
+
+
+def _chrome_forward() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _hotkey("alt", "right")
+    return "Navigated forward in Chrome history."
+
+
+def _chrome_stop() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _press("escape")
+    return "Stopped page loading in Chrome."
+
+
+def _chrome_home() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _hotkey("alt", "home")
+    return "Navigated to Chrome home page."
+
+
+def _chrome_bookmark_page(folder: str = "") -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _hotkey("ctrl", "d")
+    time.sleep(0.06)
+    _press("enter")
+    return "Bookmarked active page in Chrome."
+
+
+def _chrome_bookmark_all_tabs() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _hotkey("ctrl", "shift", "d")
+    time.sleep(0.06)
+    _press("enter")
+    return "Bookmarked all open Chrome tabs."
+
+
+def _chrome_save_page() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _hotkey("ctrl", "s")
+    return "Opened Save Page dialog in Chrome."
+
+
+def _chrome_copy_clean_url() -> str:
+    """Reads active URL, strips tracking/analytics query params, copies to clipboard."""
+    url = _chrome_get_url()
+    if not url or not url.startswith(("http://", "https://")):
+        return url or "Could not read active URL."
+    clean = _clean_url(url)
+    if _PYPERCLIP:
+        try:
+            pyperclip.copy(clean)
+        except Exception:
+            pass
+    return f"Copied clean URL to clipboard: {clean}"
+
+
+def _chrome_copy_markdown_link() -> str:
+    """Reads active URL and page title, formats as [Title](URL) on clipboard."""
+    url = _chrome_get_url()
+    if not url or not url.startswith(("http://", "https://")):
+        return url or "Could not read active URL."
+    clean = _clean_url(url)
+    title = ""
+    try:
+        import win32gui
+        w = _find_chrome_window()
+        if w:
+            raw_title = win32gui.GetWindowText(w)
+            title = re.sub(r"\s*-\s*Google Chrome.*$", "", raw_title, flags=re.I).strip()
+    except Exception:
+        pass
+    if not title:
+        title = url
+    md = f"[{title}]({clean})"
+    if _PYPERCLIP:
+        try:
+            pyperclip.copy(md)
+        except Exception:
+            pass
+    return f"Copied markdown link to clipboard: {md}"
+
+
+def _chrome_open_extensions() -> str:
+    return _chrome_new_tab("chrome://extensions")
+
+
+def _chrome_open_settings(subpage: str = "") -> str:
+    target = f"chrome://settings/{subpage.strip().lstrip('/')}" if subpage else "chrome://settings"
+    return _chrome_new_tab(target)
+
+
+def _chrome_open_flags(query: str = "") -> str:
+    target = f"chrome://flags/search?q={urllib.parse.quote(query)}" if query else "chrome://flags"
+    return _chrome_new_tab(target)
+
+
+def _chrome_open_passwords() -> str:
+    return _chrome_new_tab("chrome://password-manager")
+
+
+def _chrome_side_panel() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    return _chrome_new_tab("chrome://read-later")
+
+
+def _chrome_reading_mode() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    return _chrome_new_tab("chrome://read-later")
+
+
+def _chrome_mute_tab() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _hotkey("ctrl", "m")
+    return "Toggled mute on active Chrome tab."
+
+
+def _chrome_pin_tab() -> str:
+    _chrome_focus()
+    time.sleep(0.03)
+    _hotkey("alt", "d")
+    time.sleep(0.02)
+    return "Toggled pin state on active Chrome tab."
+
+
+def _chrome_scroll_page(direction: str = "down", amount: str = "page") -> str:
+    _chrome_focus()
+    time.sleep(0.02)
+    d = str(direction or "down").lower().strip()
+    a = str(amount or "page").lower().strip()
+    if d in ("top", "start", "first"):
+        _press("home")
+        return "Scrolled to top of Chrome page."
+    elif d in ("bottom", "end", "last"):
+        _press("end")
+        return "Scrolled to bottom of Chrome page."
+    elif d in ("up", "backward"):
+        if a in ("half", "space"):
+            _hotkey("shift", "space")
+            return "Scrolled half page up in Chrome."
+        _press("pageup")
+        return "Scrolled page up in Chrome."
+    else:
+        if a in ("half", "space"):
+            _press("space")
+            return "Scrolled half page down in Chrome."
+        _press("pagedown")
+        return "Scrolled page down in Chrome."
+
+
+def _chrome_find_next() -> str:
+    _chrome_focus()
+    time.sleep(0.02)
+    _press("f3")
+    return "Jumped to next find match in Chrome."
+
+
+def _chrome_find_prev() -> str:
+    _chrome_focus()
+    time.sleep(0.02)
+    _hotkey("shift", "f3")
+    return "Jumped to previous find match in Chrome."
+
+
+def _chrome_cdp_tabs(port: int = 9222) -> str:
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/json", headers={"User-Agent": "JARVIS"})
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        pages = [p for p in data if p.get("type") == "page"]
+        if not pages:
+            return "No Chrome pages found via CDP."
+        lines = []
+        for i, p in enumerate(pages[:25]):
+            lines.append(f"  [{i+1}] {p.get('title', 'Untitled')} -> {p.get('url', '')} (id={p.get('id')})")
+        return f"Chrome CDP Tabs ({len(pages)} on port {port}):\n" + "\n".join(lines)
+    except Exception as e:
+        return f"Chrome CDP not responding on port {port} (launch with action='chrome_launch_debug' first): {e}"
+
+
+def _chrome_cdp_activate(target: str, port: int = 9222) -> str:
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/json", headers={"User-Agent": "JARVIS"})
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        pages = [p for p in data if p.get("type") == "page"]
+        matched_id = None
+        for p in pages:
+            if target.lower() in p.get("id", "").lower() or target.lower() in p.get("title", "").lower() or target.lower() in p.get("url", "").lower():
+                matched_id = p.get("id")
+                break
+        if not matched_id and pages and target.isdigit() and 1 <= int(target) <= len(pages):
+            matched_id = pages[int(target) - 1].get("id")
+        if not matched_id:
+            return f"No CDP tab matched '{target}'."
+        act_req = urllib.request.Request(f"http://127.0.0.1:{port}/json/activate/{matched_id}")
+        with urllib.request.urlopen(act_req, timeout=1.0) as resp:
+            pass
+        _chrome_focus()
+        return f"Activated Chrome tab via CDP: {matched_id}"
+    except Exception as e:
+        return f"CDP activate error: {e}"
+
+
+def _chrome_cdp_close(target: str, port: int = 9222) -> str:
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/json", headers={"User-Agent": "JARVIS"})
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        pages = [p for p in data if p.get("type") == "page"]
+        matched_id = None
+        for p in pages:
+            if target.lower() in p.get("id", "").lower() or target.lower() in p.get("title", "").lower() or target.lower() in p.get("url", "").lower():
+                matched_id = p.get("id")
+                break
+        if not matched_id:
+            return f"No CDP tab matched '{target}'."
+        close_req = urllib.request.Request(f"http://127.0.0.1:{port}/json/close/{matched_id}")
+        with urllib.request.urlopen(close_req, timeout=1.0) as resp:
+            pass
+        return f"Closed Chrome tab via CDP: {matched_id}"
+    except Exception as e:
+        return f"CDP close error: {e}"
+
+
 def computer_control(
     parameters: dict,
     response=None,
@@ -2202,6 +2463,75 @@ def computer_control(
             rel = params.get("relative_pages", params.get("relative", None))
             return _chrome_pdf_goto_page(page=p, relative_pages=rel)
 
+        if action in ("chrome_back", "chrome_history_back"):
+            return _chrome_back()
+
+        if action in ("chrome_forward", "chrome_history_forward"):
+            return _chrome_forward()
+
+        if action in ("chrome_stop", "chrome_stop_loading"):
+            return _chrome_stop()
+
+        if action in ("chrome_home", "chrome_homepage"):
+            return _chrome_home()
+
+        if action in ("chrome_bookmark_page", "chrome_bookmark"):
+            return _chrome_bookmark_page(params.get("folder", ""))
+
+        if action == "chrome_bookmark_all_tabs":
+            return _chrome_bookmark_all_tabs()
+
+        if action == "chrome_save_page":
+            return _chrome_save_page()
+
+        if action == "chrome_copy_clean_url":
+            return _chrome_copy_clean_url()
+
+        if action == "chrome_copy_markdown_link":
+            return _chrome_copy_markdown_link()
+
+        if action in ("chrome_open_extensions", "chrome_extensions"):
+            return _chrome_open_extensions()
+
+        if action in ("chrome_open_settings", "chrome_settings"):
+            return _chrome_open_settings(params.get("subpage", ""))
+
+        if action in ("chrome_open_flags", "chrome_flags"):
+            return _chrome_open_flags(params.get("query", ""))
+
+        if action in ("chrome_open_passwords", "chrome_passwords"):
+            return _chrome_open_passwords()
+
+        if action == "chrome_side_panel":
+            return _chrome_side_panel()
+
+        if action == "chrome_reading_mode":
+            return _chrome_reading_mode()
+
+        if action in ("chrome_mute_tab", "chrome_mute"):
+            return _chrome_mute_tab()
+
+        if action in ("chrome_pin_tab", "chrome_pin"):
+            return _chrome_pin_tab()
+
+        if action in ("chrome_scroll_page", "chrome_page_scroll"):
+            return _chrome_scroll_page(params.get("direction", "down"), params.get("amount", "page"))
+
+        if action in ("chrome_find_next", "chrome_next_match"):
+            return _chrome_find_next()
+
+        if action in ("chrome_find_prev", "chrome_prev_match"):
+            return _chrome_find_prev()
+
+        if action == "chrome_cdp_tabs":
+            return _chrome_cdp_tabs(int(params.get("port", 9222)))
+
+        if action == "chrome_cdp_activate":
+            return _chrome_cdp_activate(params.get("target", params.get("tab", "")), int(params.get("port", 9222)))
+
+        if action == "chrome_cdp_close":
+            return _chrome_cdp_close(params.get("target", params.get("tab", "")), int(params.get("port", 9222)))
+
         return f"Unknown action: '{action}'"
 
     except Exception as e:
@@ -2227,7 +2557,13 @@ TOOL = {
         "chrome_click, chrome_type_in, chrome_list_tabs, chrome_zoom, chrome_find, chrome_history, "
         "chrome_downloads, chrome_bookmarks, chrome_duplicate_tab, chrome_reload, chrome_fullscreen, "
         "chrome_task_manager, chrome_print_pdf, chrome_page_source, chrome_clear_data, "
-        "chrome_pdf_goto_page, chrome_incognito, chrome_inspect, chrome_launch_debug."
+        "chrome_pdf_goto_page, chrome_incognito, chrome_inspect, chrome_launch_debug, "
+        "chrome_back, chrome_forward, chrome_stop, chrome_home, chrome_bookmark_page, "
+        "chrome_bookmark_all_tabs, chrome_save_page, chrome_copy_clean_url, chrome_copy_markdown_link, "
+        "chrome_open_extensions, chrome_open_settings, chrome_open_flags, chrome_open_passwords, "
+        "chrome_side_panel, chrome_reading_mode, chrome_mute_tab, chrome_pin_tab, "
+        "chrome_scroll_page, chrome_find_next, chrome_find_prev, "
+        "chrome_cdp_tabs, chrome_cdp_activate, chrome_cdp_close."
     ),
     "parameters": {
         "type": "OBJECT",
@@ -2248,6 +2584,12 @@ TOOL = {
                     "chrome_history | chrome_downloads | chrome_bookmarks | chrome_duplicate_tab | "
                     "chrome_reload | chrome_fullscreen | chrome_task_manager | chrome_print_pdf | chrome_page_source | chrome_clear_data | "
                     "chrome_pdf_goto_page | chrome_incognito | chrome_inspect | chrome_launch_debug | "
+                    "chrome_back | chrome_forward | chrome_stop | chrome_home | chrome_bookmark_page | "
+                    "chrome_bookmark_all_tabs | chrome_save_page | chrome_copy_clean_url | chrome_copy_markdown_link | "
+                    "chrome_open_extensions | chrome_open_settings | chrome_open_flags | chrome_open_passwords | "
+                    "chrome_side_panel | chrome_reading_mode | chrome_mute_tab | chrome_pin_tab | "
+                    "chrome_scroll_page | chrome_find_next | chrome_find_prev | "
+                    "chrome_cdp_tabs | chrome_cdp_activate | chrome_cdp_close | "
                     "random_data | user_data"
                 )
             },
