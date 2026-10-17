@@ -351,6 +351,8 @@ flowchart TD
 | **💼 LinkedIn Career Agent** | Career & Network | Automated HR connection notes (<200 chars), ATS profile auditor, recruiter search hub, and 5-check local humanizer for L1/L2/L3 SysAdmin & Network Engineers. |
 | **🌐 Network Diagnostic Hub** | SysAdmin | Sub-second latency ping, TCP port probe, CIDR subnet calculator, DNS resolver, flush DNS, traceroute, and Wi-Fi signal auditor with 0 external dependencies. |
 | **📝 Voice Knowledge Base** | Productivity | Obsidian-compatible markdown notes engine with daily work journaling, category filtering, full-text search, and automated frontmatter. |
+| **🚀 Autonomous Web Studio** | Web Dev | Scaffolds responsive websites (portfolio, SaaS, NOC dashboard), hosts instant local HTTP server with Chrome auto-preview, synthesizes UI components, and audits SEO/a11y. |
+
 
 
 ---
@@ -415,6 +417,13 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 | | *"Search my notes for VLAN 10"* | Searches titles, tags, and content across all markdown notes (`search_notes`). |
 | | *"Read my note on Switch Port Config"* | Retrieves full markdown note content (`get_note`). |
 | | *"List my recent work notes"* | Lists latest notes with category filtering (`list_notes`). |
+| **🚀 Web Dev & Site Forge** | *"Create a dark-mode portfolio website for a Network Engineer"* | Scaffolds responsive HTML5/CSS3/JS, starts local server, and auto-opens in Chrome (`create_site`). |
+| | *"Build a SaaS landing page for my automation platform"* | Generates SaaS archetype with pricing table, feature grid, and FAQ accordion (`create_site`). |
+| | *"Build a NOC telemetry dashboard"* | Generates Network Operations Center web portal with latency gauges and node matrix (`create_site`). |
+| | *"Start a local server on port 3000 for my portfolio"* | Spins up background HTTP dev server and launches in Chrome (`start_server`). |
+| | *"Stop the local web server on port 3000"* | Shuts down background dev server (`stop_server`). |
+| | *"Generate a glassmorphic pricing card component"* | Synthesizes modular UI component with embeddable CSS and preview file (`create_component`). |
+| | *"Audit my website at http://localhost:3000"* | Inspects SEO meta tags, heading hierarchy, mobile viewport, and accessibility (`audit_site`). |
 | **🛡️ Safety & System** | *"Undo that"* | Automatically rolls back the last file move, deletion, or settings change. |
 | | *"Turn off Wi-Fi"* / *"Restart the system"* | Displays a hardware confirmation banner on the HUD for physical click verification. |
 
@@ -422,8 +431,10 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 
 ## 🆕 What's New in Mark LV
 
+- 🚀 **Autonomous Web Studio & Site Forge (`web_builder`):** All-in-one web development and preview engine. Instantly scaffolds complete responsive websites (portfolios, high-converting SaaS landing pages, NOC/SysAdmin telemetry dashboards, or AI-synthesized custom sites) with rich CSS glassmorphism, Google Fonts, and vanilla JavaScript. Features an instant background local dev server (`http://localhost:3000+`) that auto-opens in Google Chrome, modular UI component synthesis (`pricing_card`, `navbar`, `stat_card`), and a comprehensive SEO, mobile viewport, and accessibility auditor.
 - 🌐 **Network Engineering & SysAdmin Diagnostic Hub (`network_tools`):** Zero-dependency native network diagnostics engine tailored for L1/L2/L3 Network Engineers and System Administrators. Provides instant sub-second `ping`, TCP `port_check`, comprehensive CIDR `subnet_calc` (usable range, broadcast, host counts, wildcard mask, binary octets), `my_ip` (local interfaces, default gateway, public IP), `dns_lookup`, `flush_dns`, `traceroute`, `arp_table`, and `wifi_audit`.
 - 📝 **Voice Knowledge Base & Daily Work Journaling Engine (`notes_manager`):** Obsidian-compatible markdown note-taking and journaling system stored in `memory/notes/`. Offers 1-shot voice logging (`daily_log` to `YYYY-MM-DD.md`), structured notes with YAML frontmatter & tags (`add_note`, `append_note`), full-text content and tag search (`search_notes`), note retrieval (`get_note`), and categorized note indexing.
+
 - 🌐 **Expanded Native Chrome Interactions Suite:** Added 20+ native Chrome controls — history navigation (`chrome_back`, `chrome_forward`, `chrome_stop`, `chrome_home`), clean URL copy (strips tracking/analytics tags), 1-click Markdown link copy (`[Title](URL)`), tab bookmarking (`chrome_bookmark_page`, `chrome_bookmark_all_tabs`), tab muting & pinning, instant scroll to top/bottom (`Home`/`End`), direct navigation to internal hubs (`chrome://extensions`, `chrome://settings`, `chrome://password-manager`, `chrome://flags`, `chrome://read-later`), and direct Chrome DevTools Protocol (CDP) JSON querying.
 
 - 🧠 **Visual Web Agent (`visual_web_agent`):** New dedicated advanced browser intelligence module. Implements **Set-of-Marks (SoM) visual grounding** (numbered element overlays), **Accessibility Tree (A11y) semantic actuation** (ARIA role / label / placeholder search), **scroll-and-seek loops** (autonomous page scrolling to find off-screen elements), and **4-strategy verified field editing** (read-back confirmation with JS native value setter fallback). Handles LinkedIn, Gmail, SPAs, and any dynamic web app reliably.
@@ -642,7 +653,9 @@ Mark-LV/
 │   ├── game_updater.py         # Game library update monitor & patch status verifier
 │   ├── network_tools.py        # SysAdmin & Network Engineering Diagnostic Hub (ping, port, CIDR, DNS, IP)
 │   ├── notes_manager.py        # Voice Knowledge Base & Obsidian-compatible daily work journaling engine
+│   ├── web_builder.py          # Autonomous Web Studio (site generator, local dev server, UI components, SEO audit)
 │   └── background_monitor.py   # Asynchronous background observer for clipboard & system health
+
 
 │
 ├── core/                       # Core Runtime Subsystems & AI Engines
@@ -723,7 +736,9 @@ Mark-LV/
 | **Motor & Visual Web Engine** | Sub-50ms native mouse, keyboard, active Chrome tab interaction, Set-of-Marks grounding, A11y actuation, verified editing. | `actions/computer_control.py`, `actions/browser_control.py`, `actions/visual_web_agent.py` |
 | **🌐 Network Diagnostic Hub** | Sub-second TCP/UDP socket checks, CIDR subnet calculator, DNS resolver, route tracing, Wi-Fi audit. | `actions/network_tools.py` |
 | **📝 Voice Knowledge Base** | Obsidian-compatible Markdown knowledge base, daily work logs, full-text note search, YAML frontmatter. | `actions/notes_manager.py` |
+| **🚀 Autonomous Web Studio** | Responsive website scaffolding, background HTTP dev server, Chrome auto-preview, UI component forge, SEO/a11y auditor. | `actions/web_builder.py` |
 | **Messaging & WhatsApp** | Multi-tier WhatsApp automation (protocol, desktop UWP, web), contact memory, safe drafting mode. | `actions/send_message.py`, `plugins/_whatsapp_core.py`, `plugins/whatsapp.py` |
+
 | **💼 LinkedIn & Career Agent** | Recruiter connection outreach (<200 chars), ATS profile auditor, recruiter search hub, and 5-check humanizer. | `plugins/linkedin_agent.py`, `plugins/linkedin/engine.py`, `config/linkedin_voice.md` |
 | **Autonomous Dev Agent** | Multi-file codebase synthesis, unit test execution, and IDE workspace launching from voice commands. | `actions/dev_agent.py`, `actions/code_helper.py`, `core/coder_engine.py` |
 | **Safety & Memory** | Universal undo journal, hardware confirmation gates, persistent local recallable memory. | `core/undo.py`, `core/confirm.py`, `memory/memory_manager.py` |

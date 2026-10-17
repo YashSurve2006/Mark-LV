@@ -312,6 +312,16 @@ Routing rules for computer and browser control:
    - Search notes: notes_manager action='search_notes', query='VLAN 10'.
    - Delete note: notes_manager action='delete_note', title_or_path='...'.
 
+10. AUTONOMOUS WEB STUDIO & SITE FORGE (web_builder):
+    - Full website creation, local dev server hosting, Chrome auto-preview, UI component synthesizer, and SEO/a11y audits.
+    - Create modern website: web_builder action='create_site', name='portfolio', template='portfolio'|'saas'|'dashboard'|'custom', title='...', prompt='...', preview=True (builds complete responsive HTML5/CSS3/JS in output/sites/<name> and auto-opens in Chrome).
+    - Launch local dev server: web_builder action='start_server', site_name='portfolio' (or target_path='...'), port=3000, open_browser=True.
+    - Stop dev server: web_builder action='stop_server', port=3000 (or stops all).
+    - List active servers: web_builder action='list_servers'.
+    - Generate UI component: web_builder action='create_component', component_type='pricing_card'|'navbar'|'stat_card'|'hero', preview=True.
+    - Audit website SEO & Accessibility: web_builder action='audit_site', target='https://example.com' or 'output/sites/portfolio/index.html'.
+
+
 
 
 
