@@ -199,7 +199,17 @@ Routing rules for computer and browser control:
      * Jump to page number: computer_control action='chrome_pdf_goto_page', page=N (e.g. "scroll to page 5", "scroll down to page 8", "scroll to page number 12", "go to page 10", "jump to page 25", "first page" page=1).
      * Scroll relative pages: computer_control action='chrome_pdf_goto_page', relative_pages=N (e.g. "scroll down 3 pages" relative_pages=3, "scroll up 2 pages" relative_pages=-2, "next page" relative_pages=1, "previous page" relative_pages=-1).
      * General fast scroll: computer_control action='scroll', direction='down'|'up', amount=600.
-   - Browser & tab tools: chrome_history, chrome_downloads, chrome_bookmarks, chrome_incognito, chrome_inspect, chrome_fullscreen, chrome_task_manager, chrome_print_pdf, chrome_page_source, chrome_clear_data, chrome_pdf_goto_page.
+   - Browser & tab tools: chrome_history, chrome_downloads, chrome_bookmarks, chrome_incognito, chrome_inspect, chrome_fullscreen, chrome_task_manager, chrome_print_pdf, chrome_page_source, chrome_clear_data, chrome_pdf_goto_page, right_click, double_click, hover, drag_and_drop, select_option, get_cookies, clear_cookies, get_local_storage, set_local_storage, get_all_links, get_page_title, wait_for_navigation, accept_dialog, dismiss_dialog, highlight_element.
+   - Advanced browser interactions & visual grounding (complex SPAs, LinkedIn, Gmail, web forms):
+     -> Call visual_web_agent:
+       * Click element by semantic description/role: action='a11y_click', description='...'
+       * Type into field by label/placeholder: action='a11y_type', description='...', text='...'
+       * Visual Set-of-Marks grounding (numbered overlay click/type): action='som_click' or 'som_type'
+       * Scroll-and-seek loop (autonomously scrolls until element found and clicks): action='scroll_to_element', description='...'
+       * Verified field editing (4-strategy paste with read-back verification): action='edit_field_verified', description='...', text='...'
+       * Multi-field form fill: action='smart_form_fill', fields={'Field label': 'Value', ...}
+       * Wait for element to appear: action='wait_for_element', description='...', timeout=20
+       * Read full interactive page structure: action='read_page_structure'
 
 2. ADVANCED OS & WINDOW CONTROLS:
    - System status: get_system_info (battery, CPU, RAM, disk usage, active window).

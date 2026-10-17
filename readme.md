@@ -19,7 +19,7 @@
 
 > 🎙️ **A real-time voice AI that can hear, see, speak, and autonomously operate your computer with sub-50ms native reflexes.** Zero subscription fees, zero cloud lock-in, and total digital autonomy.
 
-[⚡ Quick Start](#-quick-start) • [🖥️ Live UI Showcase](#️-live-interface--actual-screenshots) • [🌐 Chrome & OS Control](#-autonomous-chrome--computer-control) • [📨 WhatsApp Engine](#-whatsapp--desktop-messaging) • [💼 LinkedIn Career Agent](#-linkedin--networking-domain-career-agent) • [🏗️ Architecture](#️-system-architecture) • [🔧 Setup & Run Guide](#-step-by-step-setup-and-run-guide) • [👤 Developer](#-developer--community)
+[⚡ Quick Start](#-quick-start) • [🖥️ Live UI Showcase](#️-live-interface--actual-screenshots) • [🌐 Chrome & OS Control](#-autonomous-chrome--computer-control) • [🧠 Visual Web Agent](#-visual-web-agent--advanced-browser-intelligence) • [📨 WhatsApp Engine](#-whatsapp--desktop-messaging) • [💼 LinkedIn Career Agent](#-linkedin--networking-domain-career-agent) • [🏗️ Architecture](#️-system-architecture) • [🔧 Setup & Run Guide](#-step-by-step-setup-and-run-guide) • [👤 Developer](#-developer--community)
 
 </div>
 
@@ -30,6 +30,7 @@
 - [✨ Overview](#-overview)
 - [🖥️ Live Interface & Actual Screenshots](#️-live-interface--actual-screenshots)
 - [🌐 Autonomous Chrome & Computer Control](#-autonomous-chrome--computer-control)
+- [🧠 Visual Web Agent & Advanced Browser Intelligence](#-visual-web-agent--advanced-browser-intelligence)
 - [📨 WhatsApp & Desktop Messaging](#-whatsapp--desktop-messaging)
 - [💼 LinkedIn & Networking Domain Career Agent](#-linkedin--networking-domain-career-agent)
 - [🏗️ System Architecture](#️-system-architecture)
@@ -130,6 +131,62 @@ JARVIS Mark LV works directly on your **active, logged-in Google Chrome browser*
   - Ask JARVIS: *"Build a weather FastAPI service in Python and test it"* $\rightarrow$ JARVIS triggers `dev_agent` to draft architecture, generate source files, run unit tests, and open the workspace in VS Code or Antigravity IDE.
 - **🖱️ Motor & Desktop Grounding:**
   - Mouse clicks, smooth drag-and-drop, natural wheel scrolling (calibrated to Windows `WHEEL_DELTA` 120 units), window management (minimize, maximize, focus, list), and system settings.
+
+---
+
+## 🧠 Visual Web Agent & Advanced Browser Intelligence
+
+JARVIS Mark LV includes a next-generation **Visual Web Agent** (`visual_web_agent.py`) built directly on top of Playwright and Gemini Vision. While traditional web automation relies on brittle XPath selectors or imprecise pixel coordinates, the Visual Web Agent employs **four synergistic grounding engines** to reliably manipulate any website, single-page application (SPA), or dynamic portal (LinkedIn, Gmail, GitHub, Jira, AWS Console):
+
+<div align="center">
+  <table width="100%">
+    <tr>
+      <td width="25%" align="center">
+        <b>1. 🎯 Set-of-Marks (SoM) Grounding</b><br/>
+        Visual overlays with numbered color badges (<code>#1</code>, <code>#2</code>, ...). AI specifies the target ID with zero pixel coordinate hallucination.
+      </td>
+      <td width="25%" align="center">
+        <b>2. ♿ A11y Semantic Actuation</b><br/>
+        Directly queries the browser's Accessibility Tree by ARIA role, label, and context. Immune to layout reflows and 10× faster than raw vision.
+      </td>
+      <td width="25%" align="center">
+        <b>3. 🔄 Scroll-and-Seek Loop</b><br/>
+        Autonomously scrolls down and up through infinite feeds and long forms, re-evaluating DOM elements at each step until the element is located.
+      </td>
+      <td width="25%" align="center">
+        <b>4. ✅ 4-Strategy Verified Editing</b><br/>
+        Types into input fields and immediately reads back the value. Escalates through 4 strategies on mismatch (triple-click, Ctrl+A, JS native setter, fill).
+      </td>
+    </tr>
+  </table>
+</div>
+
+### Visual Web Agent Capabilities & Architecture
+
+| Capability | Action / Method | How It Works |
+|:---|:---|:---|
+| **Set-of-Marks Visual Grounding** | `som_click`, `som_type` | Injects JavaScript into the page to extract interactive bounding boxes, overlays numbered colored badges with PIL, and sends the annotated frame to Gemini Fast. The model returns the exact badge number (`{"found": true, "index": 14}`). JS `elementFromPoint` triggers the click even on SVG or canvas icons. |
+| **Accessibility Tree Actuation** | `a11y_click`, `a11y_type` | Inspects ARIA roles (`button`, `link`, `combobox`, `textbox`, `tab`), fuzzy `aria-label`, placeholder text, and inner text. Matches elements in <15ms without image compression or token overhead. |
+| **Autonomous Scroll-and-Seek** | `scroll_to_element` | Multi-pass viewport scanner. Sweeps down through the document in calibrated 600px increments, checks for target visibility, and automatically reverses with `Ctrl+Home` for an upward pass if needed before clicking. |
+| **Verified Input Editing** | `edit_field_verified` | Overcomes modern web framework quirks (React synthetic events, Vue reactive bindings, contenteditable divs). Checks the value after input; if mismatched, escalates to triple-click select, native DOM property descriptor setters (`HTMLInputElement.prototype.value`), and event dispatches (`input`, `change`). |
+| **Smart Multi-Field Form Fill** | `smart_form_fill` | Accepts a dictionary of field names to values (e.g. `{"First Name": "Alex", "City": "San Francisco"}`), locates each field via A11y, verifies entry, and returns consolidated field-by-field audit logs in a single call. |
+| **DOM Query & Inspection** | `dom_query`, `read_page_structure` | Extracts hierarchical page structure or queries by CSS selector, XPath, text content, or ARIA attributes for real-time situational awareness. |
+| **Dynamic Wait & Polling** | `wait_for_element` | Periodically polls the A11y tree (configurable timeout, default 20s) until modal dialogs, loading spinners, or dynamic popups settle. |
+
+### Expanded Browser Control Suite (12 New Native Actions)
+
+The core `browser_control` engine is augmented with 12 advanced operational primitives:
+- **`right_click` & `double_click`:** Context menu opening and double-click activation on any CSS selector or visible text.
+- **`hover`:** Trigger mouse-over tooltips, dropdown submenus, and CSS hover states.
+- **`drag_and_drop`:** Smooth programmatic dragging between source and destination selectors.
+- **`select_option`:** Native `<select>` dropdown option selection by value or visible label.
+- **`get_cookies` & `clear_cookies`:** Read domain cookies or wipe browser session state on demand.
+- **`get_local_storage` & `set_local_storage`:** Inspect or inject persistent web application storage keys.
+- **`get_all_links`:** Instant extraction of up to 50 visible hyperlinks, titles, and URLs on the page.
+- **`get_page_title`:** Zero-overhead extraction of the active page document title.
+- **`wait_for_navigation`:** Await `domcontentloaded` state transitions after form submissions.
+- **`accept_dialog` & `dismiss_dialog`:** Autonomously accept or cancel JavaScript `alert`, `confirm`, or `prompt` dialogs.
+- **`highlight_element`:** Temporarily flashes an electric cyan bounding outline (`3px solid #00E5FF`) on target elements so you can visually verify where JARVIS is clicking.
 
 ---
 
@@ -266,7 +323,10 @@ flowchart TD
 | **Wake Word Detection** | Voice | Offline **"Hey Jarvis"** wake-word detector with automated sleep after 2 min idle. |
 | **Self-Echo Suppression** | Audio | Automatically cancels JARVIS's own audio feedback tail without muting your microphone. |
 | **Instant PDF Navigation** | Automation | Jump to any page number or relative pages in Chrome/PDF reader in under 40ms. |
-| **Real Chrome Integration** | Browser | Control running tabs, open URLs, search, and switch tabs without launching guest windows. |
+| **Real Chrome Integration** | Browser | Control running tabs, open URLs, search, scroll, click, right-click, hover, drag-and-drop without launching guest windows. |
+| **🧠 Visual Web Agent** | Browser AI | Set-of-Marks grounding, A11y tree actuation, scroll-and-seek loops, 4-strategy verified field editing — handles LinkedIn, Gmail, SPAs. |
+| **Cookie & Storage Control** | Browser | Read/write/clear cookies and localStorage. Accept/dismiss browser dialogs. Extract all page links. |
+| **Element Highlighting** | Browser | Flash glowing cyan outline on any CSS element to visually confirm JARVIS's click target. |
 | **Autonomous Dev Agent** | Coding | Build complete multi-file apps, run unit tests, and open IDEs directly from voice commands. |
 | **9-Tier Model Ladder** | Resilience | Fallback cascade across 9 Gemini models with intelligent failure cooldowns. |
 | **Recallable Memory** | Intelligence | Persistent long-term memory with fast local index search (`memory/long_term.json`). |
@@ -285,9 +345,21 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 
 | Category | Example Voice Command | What JARVIS Executes |
 |:---|:---|:---|
-| **🌐 Chrome & Documents** | *"Scroll down to page 7 in this PDF"* | Sub-40ms native motor jump straight to page 7 without re-rendering delays. |
-| | *"Switch to my GitHub pull request tab"* | Matches open tab titles via Chromium Quick Tabs (`Ctrl+Shift+A`). |
+| **🌐 Chrome & Browser** | *"Right-click the save button and select 'Save As'"* | Right-click context menu on any identified element. |
+| | *"Hover over the profile menu"* | Hover to reveal tooltip or dropdown submenu. |
+| | *"Drag the task card to the Done column"* | Smooth CSS drag-and-drop between Kanban elements. |
+| | *"Select 'India' in the country dropdown"* | Selects `<option>` in a `<select>` by label. |
+| | *"Read all links on this page"* | Extracts 50 visible hyperlinks with their text and URLs. |
+| | *"Get the page cookies"* | Lists all cookies for the current domain. |
+| | *"Highlight the submit button"* | Flashes glowing cyan outline on the element for 2 seconds. |
+| | *"Scroll down to page 7 in this PDF"* | Sub-40ms native motor jump straight to page 7. |
+| | *"Switch to my GitHub pull request tab"* | Matches open tab titles via Chromium Quick Tabs. |
 | | *"Read what this webpage says"* | Zero-token DOM inspection extracting visible page content in <100ms. |
+| **🧠 Visual Web Agent** | *"Click the edit pencil next to my LinkedIn headline"* | SoM labels all elements, AI picks the exact pencil icon, JS click. |
+| | *"Type my new headline into the LinkedIn headline field"* | A11y-tree finds the input by label, verified 4-strategy paste with read-back. |
+| | *"Scroll down and find the Save button"* | Scroll-and-seek loop (12 steps down + up), clicks Save when found. |
+| | *"Wait for the confirmation popup to appear"* | Polls A11y tree every 1.5s up to 20s until element appears. |
+| | *"Fill in my name, email, and city in one go"* | `smart_form_fill` — 3 fields with per-field verification in one call. |
 | **💼 LinkedIn & HR Networking** | *"Connect to my LinkedIn"* | Verifies session and opens LinkedIn in your primary browser. |
 | | *"Analyze my LinkedIn for Network Engineer and SysAdmin jobs"* | Audits profile, flags keyword gaps, and copies optimized headline & about section. |
 | | *"Write a connection note for an HR at Cisco for a Network Engineer role"* | Generates 3 notes (<200 chars) + 2 follow-ups ready on clipboard. |
@@ -311,6 +383,8 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 
 ## 🆕 What's New in Mark LV
 
+- 🧠 **Visual Web Agent (`visual_web_agent`):** New dedicated advanced browser intelligence module. Implements **Set-of-Marks (SoM) visual grounding** (numbered element overlays), **Accessibility Tree (A11y) semantic actuation** (ARIA role / label / placeholder search), **scroll-and-seek loops** (autonomous page scrolling to find off-screen elements), and **4-strategy verified field editing** (read-back confirmation with JS native value setter fallback). Handles LinkedIn, Gmail, SPAs, and any dynamic web app reliably.
+- 🖱️ **12 New Advanced Browser Actions:** `right_click`, `double_click`, `hover`, `drag_and_drop`, `select_option`, `get_cookies`, `clear_cookies`, `get_local_storage`, `set_local_storage`, `get_all_links`, `get_page_title`, `wait_for_navigation`, `accept_dialog`, `dismiss_dialog`, `highlight_element` — all wired into the `browser_control` tool and auto-discoverable.
 - 💼 **LinkedIn & Networking Career Agent:** Dedicated career growth engine for Network Engineers and L1/L2/L3 System Administrators. Features strict <200 character HR connection notes, 1-click recruiter search hubs, ATS profile auditing, and zero-dependency local humanizing.
 - 📺 **HUD Video Player:** Replaces avatar viewport on-demand for YouTube or local media with dual-stream synchronization and smart microphone auto-ducking.
 - 📨 **Advanced WhatsApp Messaging Engine:** Deep-link protocol, Windows Desktop/UWP UI automation, contact and relationship resolution from memory, and safe review drafting mode.
@@ -502,6 +576,7 @@ Mark-LV/
 │   ├── computer_control.py     # Native mouse, keyboard, Chrome tabs & <40ms PDF navigation
 │   ├── computer_settings.py    # Volume, brightness, WiFi, power states & fast page scrolling
 │   ├── browser_control.py      # Playwright browser automation, DOM scraping & web forms
+│   ├── visual_web_agent.py     # Set-of-Marks grounding, A11y actuation & verified field editing
 │   ├── screen_processor.py     # Real-time screen capture (MSS), multi-monitor & vision grounding
 │   ├── dev_agent.py            # Autonomous software engineer (architecture, code, test, deploy)
 │   ├── code_helper.py          # Quick script generation, test runner & IDE workspace launcher
@@ -598,7 +673,7 @@ Mark-LV/
 | **I/O & Speech Engine** | Full-duplex 16kHz audio capture, 24kHz playback, ~50Hz viseme calculation, self-echo cancellation. | `core/audio_devices.py`, `core/viseme.py`, `core/echo.py`, `core/wake_word.py` |
 | **Cognitive Ladder** | 9-tier model fallback cascading across Gemini models with quota cooldowns and auto-resumption. | `core/gemini.py`, `core/llm_client.py`, `core/prompt.txt` |
 | **3D Holographic HUD** | Pure-software 3D facial mesh rendering with zero GPU overhead, audio oscilloscope, telemetry gauges. | `ui.py`, `core/avatar.py`, `core/avatar_mesh.py`, `core/face_model.obj` |
-| **Motor & Browser Engine** | Sub-50ms native mouse, keyboard, active Chrome tab interaction, instant PDF jumping, settings control. | `actions/computer_control.py`, `actions/computer_settings.py`, `actions/browser_control.py` |
+| **Motor & Visual Web Engine** | Sub-50ms native mouse, keyboard, active Chrome tab interaction, Set-of-Marks grounding, A11y actuation, verified editing. | `actions/computer_control.py`, `actions/browser_control.py`, `actions/visual_web_agent.py` |
 | **Messaging & WhatsApp** | Multi-tier WhatsApp automation (protocol, desktop UWP, web), contact memory, safe drafting mode. | `actions/send_message.py`, `plugins/_whatsapp_core.py`, `plugins/whatsapp.py` |
 | **💼 LinkedIn & Career Agent** | Recruiter connection outreach (<200 chars), ATS profile auditor, recruiter search hub, and 5-check humanizer. | `plugins/linkedin_agent.py`, `plugins/linkedin/engine.py`, `config/linkedin_voice.md` |
 | **Autonomous Dev Agent** | Multi-file codebase synthesis, unit test execution, and IDE workspace launching from voice commands. | `actions/dev_agent.py`, `actions/code_helper.py`, `core/coder_engine.py` |

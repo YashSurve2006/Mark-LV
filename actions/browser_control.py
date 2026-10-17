@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import json
 import os
 import platform
 import shutil
@@ -1137,6 +1138,206 @@ class _BrowserSession:
         except Exception as e:
             return f"Script evaluation failed: {e}"
 
+    async def hover(self, selector: str = None, text: str = None) -> str:
+        """Hover over an element to reveal tooltips, submenus, or dropdown overlays."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            if text:
+                el = page.get_by_text(text, exact=False).first
+            elif selector:
+                el = page.locator(selector).first
+            else:
+                return "No selector or text provided for hover."
+            await el.scroll_into_view_if_needed(timeout=5_000)
+            await el.hover(timeout=6_000)
+            return f"Hovered over '{text or selector}'."
+        except Exception as e:
+            return f"Hover error: {e}"
+
+    async def right_click(self, selector: str = None, text: str = None) -> str:
+        """Right-click an element to open a context menu."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            if text:
+                el = page.get_by_text(text, exact=False).first
+            elif selector:
+                el = page.locator(selector).first
+            else:
+                return "No selector or text provided for right_click."
+            await el.click(button="right", timeout=6_000)
+            return f"Right-clicked '{text or selector}'."
+        except Exception as e:
+            return f"Right-click error: {e}"
+
+    async def double_click(self, selector: str = None, text: str = None) -> str:
+        """Double-click an element (e.g. to open a file or enter edit mode)."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            if text:
+                el = page.get_by_text(text, exact=False).first
+            elif selector:
+                el = page.locator(selector).first
+            else:
+                return "No selector or text provided for double_click."
+            await el.dblclick(timeout=6_000)
+            return f"Double-clicked '{text or selector}'."
+        except Exception as e:
+            return f"Double-click error: {e}"
+
+    async def drag_and_drop(self, source: str, target: str) -> str:
+        """Drag element matching `source` selector to element matching `target` selector."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            src = page.locator(source).first
+            tgt = page.locator(target).first
+            await src.drag_to(tgt, timeout=10_000)
+            return f"Dragged '{source}' to '{target}'."
+        except Exception as e:
+            return f"Drag-and-drop error: {e}"
+
+    async def select_option(self, selector: str, value: str) -> str:
+        """Select an <option> inside a <select> dropdown by value, label, or index."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            el = page.locator(selector).first
+            # Try value, then label
+            try:
+                await el.select_option(value=value, timeout=5_000)
+                return f"Selected option value='{value}' in '{selector}'."
+            except Exception:
+                await el.select_option(label=value, timeout=5_000)
+                return f"Selected option label='{value}' in '{selector}'."
+        except Exception as e:
+            return f"Select option error: {e}"
+
+    async def get_cookies(self) -> str:
+        """Return all cookies for the current page as a formatted list."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            cookies = await page.context.cookies()
+            if not cookies:
+                return "No cookies found."
+            lines = [f"  {c['name']}={c['value'][:40]}{'...' if len(c['value'])>40 else ''} (domain={c.get('domain','?')})" for c in cookies[:30]]
+            return f"Cookies ({len(cookies)}):\n" + "\n".join(lines)
+        except Exception as e:
+            return f"Get cookies error: {e}"
+
+    async def clear_cookies(self) -> str:
+        """Clear all cookies for the current browser context."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            await page.context.clear_cookies()
+            return "All cookies cleared."
+        except Exception as e:
+            return f"Clear cookies error: {e}"
+
+    async def get_local_storage(self, key: str = None) -> str:
+        """Read localStorage from the current page. Pass key for a single value, or omit for all."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            if key:
+                val = await page.evaluate(f"() => localStorage.getItem({json.dumps(key)})")
+                return f"localStorage['{key}'] = {val}"
+            data = await page.evaluate("() => { const o={}; for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);o[k]=localStorage.getItem(k);} return o; }")
+            if not data:
+                return "localStorage is empty."
+            lines = [f"  {k}: {str(v)[:60]}" for k, v in list(data.items())[:20]]
+            return f"localStorage ({len(data)} keys):\n" + "\n".join(lines)
+        except Exception as e:
+            return f"Get localStorage error: {e}"
+
+    async def set_local_storage(self, key: str, value: str) -> str:
+        """Write a key-value pair into the page's localStorage."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            await page.evaluate(f"() => localStorage.setItem({json.dumps(key)}, {json.dumps(value)})")
+            return f"localStorage['{key}'] set to '{value[:60]}'"
+        except Exception as e:
+            return f"Set localStorage error: {e}"
+
+    async def get_all_links(self) -> str:
+        """Extract all visible hyperlinks on the current page."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            links = await page.evaluate(
+                """() => Array.from(document.querySelectorAll('a[href]'))
+                   .filter(a => a.offsetParent !== null)
+                   .map(a => ({text: (a.innerText||a.href).trim().slice(0,80), href: a.href}))
+                   .slice(0, 50)"""
+            )
+            if not links:
+                return "No visible links found on page."
+            lines = [f"  [{i+1}] {l['text']} -> {l['href'][:80]}" for i, l in enumerate(links)]
+            return f"Links ({len(links)}):\n" + "\n".join(lines)
+        except Exception as e:
+            return f"Get links error: {e}"
+
+    async def get_page_title(self) -> str:
+        """Return the current page's title tag."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            return f"Page title: {await page.title()}"
+        except Exception as e:
+            return f"Get title error: {e}"
+
+    async def wait_for_navigation(self, timeout: float = 15.0) -> str:
+        """Wait until the page URL changes or a navigation event fires."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=int(timeout * 1_000))
+            return f"Navigation complete: {page.url}"
+        except Exception as e:
+            return f"Wait for navigation error: {e}"
+
+    async def accept_dialog(self, accept: bool = True, prompt_text: str = "") -> str:
+        """Accept or dismiss the next browser dialog (alert/confirm/prompt)."""
+        await self._launch()
+        page = await self._get_page()
+        handled = []
+        def _handler(dialog):
+            asyncio.ensure_future(
+                dialog.accept(prompt_text) if accept else dialog.dismiss()
+            )
+            handled.append(dialog.type)
+        page.once("dialog", _handler)
+        await asyncio.sleep(3.0)  # Give time for dialog to fire
+        if handled:
+            action = "Accepted" if accept else "Dismissed"
+            return f"{action} {handled[0]} dialog."
+        return "No dialog appeared within 3 seconds."
+
+    async def highlight_element(self, selector: str, duration_ms: int = 2000) -> str:
+        """Flash a bright outline on an element so the user can see what JARVIS is targeting."""
+        await self._launch()
+        page = await self._get_page()
+        try:
+            await page.evaluate(
+                f"""(args) => {{
+                    const el = document.querySelector(args.sel);
+                    if (!el) return;
+                    const prev = el.style.outline;
+                    el.style.outline = '3px solid #00E5FF';
+                    el.style.boxShadow = '0 0 12px #00E5FF';
+                    setTimeout(() => {{ el.style.outline=prev; el.style.boxShadow=''; }}, args.ms);
+                }}""",
+                {"sel": selector, "ms": duration_ms},
+            )
+            return f"Highlighted '{selector}' for {duration_ms}ms."
+        except Exception as e:
+            return f"Highlight error: {e}"
+
     async def close_browser(self) -> str:
         await self._async_close()
         return f"{self.browser_name} closed."
@@ -1187,7 +1388,7 @@ class _SessionRegistry:
         browser_name = _ALIASES.get(browser_name.lower().strip(), browser_name.lower().strip())
         self._get_or_create(browser_name)
         self._active_browser = browser_name
-        return f"Active browser → {browser_name}"
+        return f"Active browser -> {browser_name}"
 
     def close_one(self, browser_name: str) -> str:
         with self._lock:
@@ -1218,7 +1419,7 @@ class _SessionRegistry:
                 return "No active browser sessions."
             lines = []
             for name in self._sessions:
-                marker = " ◀ active" if name == self._active_browser else ""
+                marker = " <- active" if name == self._active_browser else ""
                 lines.append(f"  • {name}{marker}")
             return "Open browsers:\n" + "\n".join(lines)
 
@@ -1387,6 +1588,35 @@ def browser_control(
         elif action in ("launch_debug", "enable_debugging"):
             from actions.computer_control import _chrome_launch_debug
             result = _chrome_launch_debug(int(params.get("port", 9222)))
+        elif action == "hover":
+            result = sess.run(sess.hover(params.get("selector"), params.get("text")))
+        elif action == "right_click":
+            result = sess.run(sess.right_click(params.get("selector"), params.get("text")))
+        elif action == "double_click":
+            result = sess.run(sess.double_click(params.get("selector"), params.get("text")))
+        elif action == "drag_and_drop":
+            result = sess.run(sess.drag_and_drop(params.get("source", ""), params.get("target", "")))
+        elif action == "select_option":
+            result = sess.run(sess.select_option(params.get("selector", ""), params.get("value", "")))
+        elif action == "get_cookies":
+            result = sess.run(sess.get_cookies())
+        elif action == "clear_cookies":
+            result = sess.run(sess.clear_cookies())
+        elif action == "get_local_storage":
+            result = sess.run(sess.get_local_storage(params.get("key")))
+        elif action == "set_local_storage":
+            result = sess.run(sess.set_local_storage(params.get("key", ""), params.get("value", "")))
+        elif action == "get_all_links":
+            result = sess.run(sess.get_all_links())
+        elif action == "get_page_title":
+            result = sess.run(sess.get_page_title())
+        elif action == "wait_for_navigation":
+            result = sess.run(sess.wait_for_navigation(float(params.get("timeout", 15.0))))
+        elif action in ("accept_dialog", "dismiss_dialog"):
+            accept = action == "accept_dialog"
+            result = sess.run(sess.accept_dialog(accept, params.get("text", "")))
+        elif action == "highlight_element":
+            result = sess.run(sess.highlight_element(params.get("selector", ""), int(params.get("duration_ms", 2000))))
         else:
             result = f"Unknown browser action: '{action}'"
 
@@ -1401,9 +1631,18 @@ def browser_control(
 
 def _log(player, text: str):
     short = str(text)[:80]
-    print(f"[Browser] {short}")
+    try:
+        print(f"[Browser] {short}")
+    except UnicodeEncodeError:
+        try:
+            print(f"[Browser] {short.encode('ascii', errors='replace').decode('ascii')}")
+        except Exception:
+            pass
     if player:
-        player.write_log(f"[browser] {short[:60]}")
+        try:
+            player.write_log(f"[browser] {short[:60]}")
+        except Exception:
+            pass
 
 
 # ── Tool declaration (auto-discovered by core/action_loader.py) ──────────────
@@ -1411,15 +1650,22 @@ TOOL = {
     "name": "browser_control",
     "description": (
         "Controls web browsers directly on the user's running tabs, profiles, and Google accounts. "
-        "Use for: opening websites, new tabs, switching tabs, listing tabs, closing tabs, clicking elements, "
-        "filling forms, typing, scrolling, screenshots, navigation, zooming, searching on page, history, downloads, "
-        "bookmarks, duplicating tabs, script evaluation, and web tasks. "
+        "Use for: opening websites, new tabs, switching tabs, listing tabs, closing tabs, "
+        "clicking, right-clicking, double-clicking, hovering, drag-and-drop, "
+        "filling forms, selecting dropdown options, typing, scrolling, screenshots, "
+        "navigation (back/forward/reload), zooming, searching on page, extracting text/links/title, "
+        "history, downloads, bookmarks, cookies management, localStorage read/write, "
+        "JavaScript evaluation, dialog handling, element highlighting, and advanced web automation. "
         "When the user has Chrome open, all actions work directly on THEIR open tabs without "
         "launching an empty guest window. "
-        "Actions: go_to | search | new_tab | switch_tab | list_tabs | close_tab | duplicate_tab | "
-        "smart_click | smart_type | get_text | get_url | fill_form | click | type | scroll | press | "
-        "zoom | find_text | history | downloads | bookmarks | fullscreen | task_manager | print_pdf | page_source | clear_data | "
-        "evaluate_script | back | forward | reload | switch | list_browsers | close | close_all | launch_debug"
+        "Core navigation: go_to | search | new_tab | switch_tab | list_tabs | close_tab | duplicate_tab | back | forward | reload. "
+        "Interaction: click | right_click | double_click | hover | drag_and_drop | type | fill_form | "
+        "smart_click | smart_type | select_option | press | scroll. "
+        "Inspection: get_text | get_url | get_page_title | get_all_links | screenshot | get_cookies | "
+        "get_local_storage | page_source. "
+        "Advanced: evaluate_script | set_local_storage | clear_cookies | accept_dialog | dismiss_dialog | "
+        "highlight_element | wait_for_navigation | zoom | find_text | history | downloads | bookmarks | "
+        "fullscreen | task_manager | print_pdf | clear_data | launch_debug | switch | list_browsers | close | close_all."
     ),
     "parameters": {
         "type": "OBJECT",
@@ -1427,16 +1673,19 @@ TOOL = {
             "action": {
                 "type": "STRING",
                 "description": (
-                    "go_to | search | new_tab | switch_tab | list_tabs | close_tab | duplicate_tab | "
-                    "click | type | scroll | goto_page | fill_form | smart_click | smart_type | get_text | get_url | "
-                    "press | zoom | find_text | history | downloads | bookmarks | fullscreen | task_manager | "
-                    "print_pdf | page_source | clear_data | evaluate_script | "
-                    "screenshot | back | forward | reload | switch | list_browsers | close | close_all | launch_debug"
+                    "Navigation: go_to | search | new_tab | switch_tab | list_tabs | close_tab | duplicate_tab | back | forward | reload | goto_page. "
+                    "Interaction: click | right_click | double_click | hover | drag_and_drop | type | fill_form | "
+                    "smart_click | smart_type | select_option | press | scroll. "
+                    "Inspection: get_text | get_url | get_page_title | get_all_links | screenshot | "
+                    "get_cookies | get_local_storage | page_source. "
+                    "Advanced: evaluate_script | set_local_storage | clear_cookies | accept_dialog | dismiss_dialog | "
+                    "highlight_element | wait_for_navigation | zoom | find_text | history | downloads | bookmarks | "
+                    "fullscreen | task_manager | print_pdf | clear_data | launch_debug | switch | list_browsers | close | close_all."
                 )
             },
             "page": {
                 "type": "INTEGER",
-                "description": "Page number to navigate to for goto_page or PDF scroll"
+                "description": "Page number to navigate to for goto_page or PDF scroll."
             },
             "browser": {
                 "type": "STRING",
@@ -1444,72 +1693,90 @@ TOOL = {
             },
             "url": {
                 "type": "STRING",
-                "description": "URL for go_to / new_tab action"
+                "description": "URL for go_to or new_tab."
             },
             "query": {
                 "type": "STRING",
-                "description": "Search query for search or find_text action"
+                "description": "Search query for search or find_text."
             },
             "target": {
                 "type": "STRING",
-                "description": "Target tab for switch_tab: next | prev | 1..9 | last | tab name"
+                "description": "Target for switch_tab: next | prev | 1-9 | last | tab title keyword."
             },
             "engine": {
                 "type": "STRING",
-                "description": "Search engine: google | bing | duckduckgo | yandex (default: google)"
+                "description": "Search engine: google | bing | duckduckgo | yandex (default: google)."
             },
             "selector": {
                 "type": "STRING",
-                "description": "CSS selector for click/type"
+                "description": "CSS selector for click, hover, right_click, double_click, drag_and_drop, select_option, highlight_element."
             },
-            "text": {
+            "source": {
                 "type": "STRING",
-                "description": "Text to click, type, or search"
+                "description": "CSS selector of the element to drag (for drag_and_drop)."
             },
-            "description": {
+            "target_selector": {
                 "type": "STRING",
-                "description": "Element description for smart_click/smart_type"
+                "description": "CSS selector of the drop destination (for drag_and_drop — use 'target' param key)."
             },
-            "level": {
+            "value": {
                 "type": "STRING",
-                "description": "Zoom level: in | out | reset"
-            },
-            "script": {
-                "type": "STRING",
-                "description": "JavaScript code to execute in evaluate_script"
-            },
-            "direction": {
-                "type": "STRING",
-                "description": "up | down for scroll"
-            },
-            "amount": {
-                "type": "INTEGER",
-                "description": "Scroll amount in pixels (default: 500)"
+                "description": "Option value or label for select_option. Also used for set_local_storage."
             },
             "key": {
                 "type": "STRING",
-                "description": "Key name for press action (e.g. Enter, Escape, F5)"
+                "description": "Key name for press action (e.g. Enter, Escape, Tab, F5, ArrowDown)."
+            },
+            "text": {
+                "type": "STRING",
+                "description": "Text content to match, type, or enter into a dialog prompt."
+            },
+            "description": {
+                "type": "STRING",
+                "description": "Natural language element description for smart_click / smart_type."
+            },
+            "level": {
+                "type": "STRING",
+                "description": "Zoom level: in | out | reset."
+            },
+            "script": {
+                "type": "STRING",
+                "description": "JavaScript expression to evaluate (evaluate_script)."
+            },
+            "direction": {
+                "type": "STRING",
+                "description": "Scroll direction: up | down."
+            },
+            "amount": {
+                "type": "INTEGER",
+                "description": "Scroll amount in pixels (default: 500)."
             },
             "path": {
                 "type": "STRING",
-                "description": "Save path for screenshot"
-            },
-            "incognito": {
-                "type": "BOOLEAN",
-                "description": "Open in private/incognito mode"
+                "description": "File path to save screenshot."
             },
             "clear_first": {
                 "type": "BOOLEAN",
-                "description": "Clear field before typing (default: true)"
+                "description": "Clear the field before typing (default: true)."
             },
             "hard": {
                 "type": "BOOLEAN",
-                "description": "Hard refresh for reload action (default: false)"
+                "description": "Hard-refresh (Ctrl+Shift+R) instead of normal reload (default: false)."
+            },
+            "duration_ms": {
+                "type": "INTEGER",
+                "description": "Duration in milliseconds for highlight_element flash (default: 2000)."
+            },
+            "timeout": {
+                "type": "NUMBER",
+                "description": "Timeout in seconds for wait_for_navigation (default: 15)."
+            },
+            "fields": {
+                "type": "OBJECT",
+                "description": "Field map for fill_form: {\"css_selector\": \"value_to_type\"}."
             }
         },
-        "required": [
-            "action"
-        ]
+        "required": ["action"]
     },
     "handler": browser_control,
 }
