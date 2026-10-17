@@ -349,6 +349,9 @@ flowchart TD
 | **Remote Dashboard** | Mobility | Mobile web dashboard accessible via QR code with self-signed TLS security. |
 | **📨 WhatsApp Automation** | Messaging | Compose, draft, and send WhatsApp messages directly via protocol deep-link, desktop UWP app, or web. Includes contact memory & safe drafting mode. |
 | **💼 LinkedIn Career Agent** | Career & Network | Automated HR connection notes (<200 chars), ATS profile auditor, recruiter search hub, and 5-check local humanizer for L1/L2/L3 SysAdmin & Network Engineers. |
+| **🌐 Network Diagnostic Hub** | SysAdmin | Sub-second latency ping, TCP port probe, CIDR subnet calculator, DNS resolver, flush DNS, traceroute, and Wi-Fi signal auditor with 0 external dependencies. |
+| **📝 Voice Knowledge Base** | Productivity | Obsidian-compatible markdown notes engine with daily work journaling, category filtering, full-text search, and automated frontmatter. |
+
 
 ---
 
@@ -398,6 +401,20 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 | | *"Pause playback"* / *"Volume up to 75%"* | Adjusts media state or system sound output levels natively. |
 | **🧠 Memory & Recall** | *"Remember that my primary IDE is Antigravity"* | Silently registers preference into persistent long-term storage. |
 | | *"What are my active projects right now?"* | Reads your stored goals and active projects from long-term memory. |
+| **🌐 Network & SysAdmin** | *"Ping 8.8.8.8"* / *"Ping google.com 4 times"* | Measures packet round-trip latency and loss (`ping`). |
+| | *"Check if port 443 is open on 192.168.1.1"* | Tests TCP socket reachability and firewall rules (`port_check`). |
+| | *"Calculate subnet 192.168.1.0/24"* | Generates CIDR breakdown: usable IP range, broadcast, wildcard mask, and host capacity (`subnet_calc`). |
+| | *"What is my IP address?"* | Discovers local network interfaces, default gateway, and WAN public IP (`my_ip`). |
+| | *"Look up MX records for cloudflare.com"* | Queries DNS records (A, AAAA, MX, TXT, CNAME) via native resolver (`dns_lookup`). |
+| | *"Flush my DNS cache"* | Flushes local Windows DNS resolver cache (`flush_dns`). |
+| | *"Traceroute to 1.1.1.1"* | Traces network routing hops and node latencies (`traceroute`). |
+| | *"Show my ARP table"* | Displays active IP-to-MAC address mappings (`arp_table`). |
+| | *"Audit my Wi-Fi connection"* | Audits current SSID, BSSID, signal strength percentage, and radio band (`wifi_audit`). |
+| **📝 Voice Notes & Journal** | *"Add a daily log: Configured OSPF area 0 on core router"* | Appends timestamped entry to today's `YYYY-MM-DD.md` work journal (`daily_log`). |
+| | *"Take a note called Switch Port Config with content VLAN 10 on gigabit 0/1"* | Creates categorized markdown note with frontmatter and tags (`add_note`). |
+| | *"Search my notes for VLAN 10"* | Searches titles, tags, and content across all markdown notes (`search_notes`). |
+| | *"Read my note on Switch Port Config"* | Retrieves full markdown note content (`get_note`). |
+| | *"List my recent work notes"* | Lists latest notes with category filtering (`list_notes`). |
 | **🛡️ Safety & System** | *"Undo that"* | Automatically rolls back the last file move, deletion, or settings change. |
 | | *"Turn off Wi-Fi"* / *"Restart the system"* | Displays a hardware confirmation banner on the HUD for physical click verification. |
 
@@ -405,7 +422,10 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 
 ## 🆕 What's New in Mark LV
 
+- 🌐 **Network Engineering & SysAdmin Diagnostic Hub (`network_tools`):** Zero-dependency native network diagnostics engine tailored for L1/L2/L3 Network Engineers and System Administrators. Provides instant sub-second `ping`, TCP `port_check`, comprehensive CIDR `subnet_calc` (usable range, broadcast, host counts, wildcard mask, binary octets), `my_ip` (local interfaces, default gateway, public IP), `dns_lookup`, `flush_dns`, `traceroute`, `arp_table`, and `wifi_audit`.
+- 📝 **Voice Knowledge Base & Daily Work Journaling Engine (`notes_manager`):** Obsidian-compatible markdown note-taking and journaling system stored in `memory/notes/`. Offers 1-shot voice logging (`daily_log` to `YYYY-MM-DD.md`), structured notes with YAML frontmatter & tags (`add_note`, `append_note`), full-text content and tag search (`search_notes`), note retrieval (`get_note`), and categorized note indexing.
 - 🌐 **Expanded Native Chrome Interactions Suite:** Added 20+ native Chrome controls — history navigation (`chrome_back`, `chrome_forward`, `chrome_stop`, `chrome_home`), clean URL copy (strips tracking/analytics tags), 1-click Markdown link copy (`[Title](URL)`), tab bookmarking (`chrome_bookmark_page`, `chrome_bookmark_all_tabs`), tab muting & pinning, instant scroll to top/bottom (`Home`/`End`), direct navigation to internal hubs (`chrome://extensions`, `chrome://settings`, `chrome://password-manager`, `chrome://flags`, `chrome://read-later`), and direct Chrome DevTools Protocol (CDP) JSON querying.
+
 - 🧠 **Visual Web Agent (`visual_web_agent`):** New dedicated advanced browser intelligence module. Implements **Set-of-Marks (SoM) visual grounding** (numbered element overlays), **Accessibility Tree (A11y) semantic actuation** (ARIA role / label / placeholder search), **scroll-and-seek loops** (autonomous page scrolling to find off-screen elements), and **4-strategy verified field editing** (read-back confirmation with JS native value setter fallback). Handles LinkedIn, Gmail, SPAs, and any dynamic web app reliably.
 - 🖱️ **12 New Advanced Browser Actions:** `right_click`, `double_click`, `hover`, `drag_and_drop`, `select_option`, `get_cookies`, `clear_cookies`, `get_local_storage`, `set_local_storage`, `get_all_links`, `get_page_title`, `wait_for_navigation`, `accept_dialog`, `dismiss_dialog`, `highlight_element` — all wired into the `browser_control` tool and auto-discoverable.
 - 💼 **LinkedIn & Networking Career Agent:** Dedicated career growth engine for Network Engineers and L1/L2/L3 System Administrators. Features strict <200 character HR connection notes, 1-click recruiter search hubs, ATS profile auditing, and zero-dependency local humanizing.
@@ -620,7 +640,10 @@ Mark-LV/
 │   ├── workflow.py             # Multi-command chained workflows & custom macro sequences
 │   ├── proactive.py            # Ambient proactive intelligence & contextual user prompts
 │   ├── game_updater.py         # Game library update monitor & patch status verifier
+│   ├── network_tools.py        # SysAdmin & Network Engineering Diagnostic Hub (ping, port, CIDR, DNS, IP)
+│   ├── notes_manager.py        # Voice Knowledge Base & Obsidian-compatible daily work journaling engine
 │   └── background_monitor.py   # Asynchronous background observer for clipboard & system health
+
 │
 ├── core/                       # Core Runtime Subsystems & AI Engines
 │   ├── gemini.py               # 9-tier Model Ladder with intelligent timeout & quota backoff
@@ -652,7 +675,8 @@ Mark-LV/
 ├── memory/                     # Memory, State & Configuration Management
 │   ├── memory_manager.py       # Long-term episodic memory engine with keyword indexing
 │   ├── config_manager.py       # Thread-safe atomic JSON configuration reader/writer
-│   └── long_term.json          # Persistent recallable facts, preferences & project history
+│   ├── long_term.json          # Persistent recallable facts, preferences & project history
+│   └── notes/                  # Obsidian-compatible markdown knowledge base & daily logs
 │
 ├── plugins/                    # Drop-in Extensible Plugin Ecosystem
 │   ├── _template.py            # Boilerplate starter template for custom user plugins
@@ -697,6 +721,8 @@ Mark-LV/
 | **Cognitive Ladder** | 9-tier model fallback cascading across Gemini models with quota cooldowns and auto-resumption. | `core/gemini.py`, `core/llm_client.py`, `core/prompt.txt` |
 | **3D Holographic HUD** | Pure-software 3D facial mesh rendering with zero GPU overhead, audio oscilloscope, telemetry gauges. | `ui.py`, `core/avatar.py`, `core/avatar_mesh.py`, `core/face_model.obj` |
 | **Motor & Visual Web Engine** | Sub-50ms native mouse, keyboard, active Chrome tab interaction, Set-of-Marks grounding, A11y actuation, verified editing. | `actions/computer_control.py`, `actions/browser_control.py`, `actions/visual_web_agent.py` |
+| **🌐 Network Diagnostic Hub** | Sub-second TCP/UDP socket checks, CIDR subnet calculator, DNS resolver, route tracing, Wi-Fi audit. | `actions/network_tools.py` |
+| **📝 Voice Knowledge Base** | Obsidian-compatible Markdown knowledge base, daily work logs, full-text note search, YAML frontmatter. | `actions/notes_manager.py` |
 | **Messaging & WhatsApp** | Multi-tier WhatsApp automation (protocol, desktop UWP, web), contact memory, safe drafting mode. | `actions/send_message.py`, `plugins/_whatsapp_core.py`, `plugins/whatsapp.py` |
 | **💼 LinkedIn & Career Agent** | Recruiter connection outreach (<200 chars), ATS profile auditor, recruiter search hub, and 5-check humanizer. | `plugins/linkedin_agent.py`, `plugins/linkedin/engine.py`, `config/linkedin_voice.md` |
 | **Autonomous Dev Agent** | Multi-file codebase synthesis, unit test execution, and IDE workspace launching from voice commands. | `actions/dev_agent.py`, `actions/code_helper.py`, `core/coder_engine.py` |

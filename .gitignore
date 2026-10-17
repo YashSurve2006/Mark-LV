@@ -16,6 +16,7 @@ config/whatsapp_web/
 
 # ── Personal data & memory ──────────────────────────────────────────────────
 memory/long_term.json
+memory/notes/
 memory/*.db
 memory/*.sqlite
 memory/*.sqlite3

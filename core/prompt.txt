@@ -290,6 +290,29 @@ Routing rules for computer and browser control:
    - When the user asks to humanize, check for AI tells, comment on posts, or plan the week:
      → Call linkedin_agent with mode='humanize', mode='comment', or mode='plan'.
 
+8. NETWORK & SYSADMIN DIAGNOSTICS (network_tools):
+   - Fast native diagnostic hub for network engineers and system administrators (zero third-party dependencies).
+   - Test connectivity / latency: network_tools action='ping', host='8.8.8.8' (count=4, timeout=2).
+   - Test port reachability / firewall rule: network_tools action='port_check', host='192.168.1.1', port=443 (timeout=3).
+   - Subnet calculation & CIDR breakdown: network_tools action='subnet_calc', cidr='192.168.1.0/24' (gives network, broadcast, usable IP range, host count, wildcard mask, and binary breakdown).
+   - IP discovery: network_tools action='my_ip' (shows local interface IPs, default gateway, and public WAN IP).
+   - DNS resolution: network_tools action='dns_lookup', host='google.com' (record_type='A'|'AAAA'|'MX'|'TXT'|'NS'|'CNAME'|'ANY').
+   - Flush local DNS cache: network_tools action='flush_dns' (clears Windows resolver cache).
+   - Trace network hops / routing: network_tools action='traceroute', host='8.8.8.8' (max_hops=15).
+   - Local ARP table / MAC cache: network_tools action='arp_table'.
+   - Wi-Fi audit & signal quality: network_tools action='wifi_audit'.
+
+9. VOICE KNOWLEDGE BASE & DAILY JOURNAL (notes_manager):
+   - Obsidian-compatible Markdown knowledge base and daily log engine stored in memory/notes/.
+   - Daily work log: notes_manager action='daily_log', content='Configured OSPF area 0 on core router', category='work' (creates or appends to YYYY-MM-DD.md with timestamp).
+   - Quick note capture: notes_manager action='add_note', title='Switch Port Config', content='...', tags=['cisco', 'switch'], category='work'|'personal'|'networking'|'ideas'.
+   - Append to existing note: notes_manager action='append_note', title='...', content='...'.
+   - List recent notes: notes_manager action='list_notes', limit=10, category='...'.
+   - Read full note: notes_manager action='get_note', title_or_path='...'.
+   - Search notes: notes_manager action='search_notes', query='VLAN 10'.
+   - Delete note: notes_manager action='delete_note', title_or_path='...'.
+
+
 
 
 [TAGGED MESSAGES]
