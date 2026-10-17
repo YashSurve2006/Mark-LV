@@ -128,13 +128,17 @@ _PALETTE_DEFAULTS: dict[str, str] = {k: getattr(C, k) for k in _HUE_LINKED}
 DEFAULT_UI_COLOR = _PALETTE_DEFAULTS["PRI"]
 
 THEME_PRESETS: list[tuple[str, str, str]] = [
-    ("STARK CYAN",   "#00d4ff", "Stark Arc Cyan"),
-    ("MARK III",     "#ff2a4b", "Iron Man Crimson & Gold"),
-    ("MATRIX",       "#00ff66", "Cyber Matrix Green"),
-    ("SYNTHWAVE",    "#b829ff", "Neon Royal Cyberpunk Violet"),
-    ("TITANIUM",     "#6e8494", "Stealth Titanium Carbon"),
-    ("WAR MACHINE",  "#ffaa00", "Warning Hazard Amber"),
+    ("STARK CYAN",     "#00d4ff", "Stark Arc Cyan"),
+    ("MARK III",       "#ff2a4b", "Iron Man Crimson & Gold"),
+    ("MATRIX",         "#00ff66", "Cyber Matrix Green"),
+    ("SYNTHWAVE",      "#b829ff", "Neon Royal Cyberpunk Violet"),
+    ("QUANTUM PURPLE", "#9d4edd", "Deep Space Quantum Purple"),
+    ("CYBER GOLD",     "#ffc107", "Stark Industries Cyber Gold"),
+    ("ICE BLUE",       "#38bdf8", "Glacial Cold Fusion Blue"),
+    ("TITANIUM",       "#6e8494", "Stealth Titanium Carbon"),
+    ("WAR MACHINE",    "#ffaa00", "Warning Hazard Amber"),
 ]
+
 
 
 def apply_ui_accent(accent_hex: str) -> bool:
@@ -995,6 +999,29 @@ class HudCanvas(QWidget):
                 else:
                     _acc = qcol(C.PRI)
             self._avatar.paint(p, cx, _head_cy, _r_head, _main, _acc, qcol(C.BG))
+
+            # Holographic Stark Reticle Framing around the 3D Avatar
+            if W > 60 and H > 60:
+                m_pad = min(W, H) * 0.035
+                arm_len = min(W, H) * 0.05
+                p.setPen(QPen(qcol(C.BORDER_B), 1.2))
+                for sx, sy in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+                    bx = cx + sx * (W / 2 - m_pad)
+                    by = cy + sy * (H / 2 - m_pad)
+                    p.drawLine(QLineF(bx, by, bx - sx * arm_len, by))
+                    p.drawLine(QLineF(bx, by, bx, by - sy * arm_len))
+
+                reticle_r = _r_head * 1.35
+                if reticle_r > 30:
+                    p.setPen(QPen(qcol(C.BORDER_A), 1, Qt.PenStyle.DashLine))
+                    p.drawEllipse(QPointF(cx, _head_cy), reticle_r, reticle_r)
+
+                    p.setPen(QPen(qcol(C.PRI_DIM), 1.2))
+                    t_len = 6.0
+                    p.drawLine(QLineF(cx - reticle_r - t_len, _head_cy, cx - reticle_r + t_len, _head_cy))
+                    p.drawLine(QLineF(cx + reticle_r - t_len, _head_cy, cx + reticle_r + t_len, _head_cy))
+                    p.drawLine(QLineF(cx, _head_cy - reticle_r - t_len, cx, _head_cy - reticle_r + t_len))
+                    p.drawLine(QLineF(cx, _head_cy + reticle_r - t_len, cx, _head_cy + reticle_r + t_len))
         elif self.hud_style == "orb":
             _band_t = 12.0
             _band_h = max(60.0, _sy_status - 12.0 - _band_t)
@@ -1050,6 +1077,9 @@ class HudCanvas(QWidget):
                 else:
                     cl = qcol(C.BORDER_B)
             p.fillRect(QRectF(wx0 + i * bw, wy + 20 - hgt, bw - 1, hgt), cl)
+            if amp > 0.05 and hgt > 4:
+                p.fillRect(QRectF(wx0 + i * bw, wy + 20 - hgt, bw - 1, 2), qcol(C.WHITE))
+
 
         p.end()   # end deterministically so the backing store never flushes an active painter
 
@@ -4098,6 +4128,15 @@ class MainWindow(QMainWindow):
         except Exception:
             self._proc_lbl.setText("PROC  --")
 
+        if hasattr(self, '_net_status_lbl'):
+            if net > 0.05:
+                self._net_status_lbl.setText("NET  TX/RX")
+                self._net_status_lbl.setStyleSheet(f"color: {C.GREEN}; background: transparent; border: none;")
+            else:
+                self._net_status_lbl.setText("NET  NOMINAL")
+                self._net_status_lbl.setStyleSheet(f"color: {C.PRI}; background: transparent; border: none;")
+
+
 
     def _build_header(self) -> QWidget:
         w = QWidget()
@@ -4215,7 +4254,26 @@ class MainWindow(QMainWindow):
         self._quick_dev_btn.clicked.connect(self._on_quick_dev_clicked)
         dock.addWidget(self._quick_dev_btn)
 
+        self._quick_web_btn = QPushButton("🚀 WEB")
+        self._quick_web_btn.setFixedHeight(26)
+        self._quick_web_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        self._quick_web_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_web_btn.setToolTip("Autonomous Web Studio (Build Portfolios, SaaS Sites & NOC Dashboards)")
+        self._quick_web_btn.setStyleSheet(_btn_q_style)
+        self._quick_web_btn.clicked.connect(self._on_quick_web_clicked)
+        dock.addWidget(self._quick_web_btn)
+
+        self._quick_net_btn = QPushButton("📡 NET")
+        self._quick_net_btn.setFixedHeight(26)
+        self._quick_net_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        self._quick_net_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._quick_net_btn.setToolTip("Network Diagnostic & IP Probe (Sub-second ping, DNS & latency)")
+        self._quick_net_btn.setStyleSheet(_btn_q_style)
+        self._quick_net_btn.clicked.connect(self._on_quick_net_clicked)
+        dock.addWidget(self._quick_net_btn)
+
         self._quick_snip_btn = QPushButton("👁 SNIP")
+
         self._quick_snip_btn.setFixedHeight(26)
         self._quick_snip_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
         self._quick_snip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -4313,6 +4371,11 @@ class MainWindow(QMainWindow):
         os_lbl.setStyleSheet(f"color: {C.ACC2}; background: transparent; border: none;")
         ip_lay.addWidget(os_lbl)
 
+        self._net_status_lbl = QLabel("NET  NOMINAL")
+        self._net_status_lbl.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
+        self._net_status_lbl.setStyleSheet(f"color: {C.PRI}; background: transparent; border: none;")
+        ip_lay.addWidget(self._net_status_lbl)
+
         lay.addWidget(info_panel)
         lay.addSpacing(4)
 
@@ -4320,7 +4383,7 @@ class MainWindow(QMainWindow):
 
         for txt, col in [
             ("AI CORE\nACTIVE",  C.GREEN),
-            ("SEC\nCLEARED",     C.PRI),
+            ("24 TOOLS\nONLINE", C.PRI),
             ("PROTOCOL\n" + APP_PROTOCOL,   C.TEXT_DIM),
         ]:
             lbl = QLabel(txt)
@@ -4333,6 +4396,7 @@ class MainWindow(QMainWindow):
             lay.addWidget(lbl)
 
         return w
+
     def _build_right_panel(self) -> QWidget:
         w = QWidget()
         w.setFixedWidth(_RIGHT_W)
@@ -5483,7 +5547,43 @@ class MainWindow(QMainWindow):
             self._input.setText("Build and test: ")
             self._input.setFocus()
 
+    def _on_quick_web_clicked(self):
+        from PyQt6.QtWidgets import QInputDialog
+        options = [
+            "1. Dark Portfolio Website (Glassmorphic + Projects)",
+            "2. SaaS Landing Page (Pricing + Features + FAQ)",
+            "3. NOC Telemetry Sentinel Dashboard",
+            "4. Start Local Dev Server (Port 3000)",
+            "5. Audit Website SEO & Accessibility"
+        ]
+        choice, ok = QInputDialog.getItem(
+            self, "JARVIS Autonomous Web Studio",
+            "Select website archetype or operation to execute:",
+            options, 0, False
+        )
+        if ok and choice:
+            if "Portfolio" in choice:
+                cmd = "Create a dark-mode portfolio website for a Software and Network Engineer and preview it in Chrome."
+            elif "SaaS" in choice:
+                cmd = "Build a modern SaaS landing page for an AI automation platform and preview it in Chrome."
+            elif "NOC" in choice:
+                cmd = "Build a real-time NOC telemetry and network status dashboard and preview it in Chrome."
+            elif "Dev Server" in choice:
+                cmd = "Start local dev server on port 3000 and open in Chrome."
+            else:
+                cmd = "Audit my local website at output/sites/test_portfolio/index.html for SEO and accessibility."
+            self._log.append_log(f"You (Web Studio): {cmd}")
+            if self.on_text_command:
+                threading.Thread(target=self.on_text_command, args=(cmd,), daemon=True).start()
+
+    def _on_quick_net_clicked(self):
+        cmd = "Check my IP address, ping google.com 4 times, and show local network gateway."
+        self._log.append_log(f"You (Net Probe): {cmd}")
+        if self.on_text_command:
+            threading.Thread(target=self.on_text_command, args=(cmd,), daemon=True).start()
+
     def _on_quick_snip_clicked(self):
+
         cmd = "Analyze my current screen and tell me what is open and visible."
         self._log.append_log(f"You: {cmd}")
         if self.on_text_command:

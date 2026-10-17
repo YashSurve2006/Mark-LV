@@ -101,10 +101,14 @@ The HUD is built entirely with **PyQt6** and rendered in pure software. It requi
 | Component | Technical Implementation |
 |:---|:---|
 | **🧑‍🎤 3D Holographic Avatar** | 3D human head geometry computed dynamically from the canonical MediaPipe face model (468 vertices). Features realistic blinking, saccadic eye movements, head nods on emphasized syllables, and ~50Hz phonetic visemes. |
-| **〰️ Reactive Waveform** | Real-time audio reactive oscilloscope beneath the avatar. Pulses with electric cyan amplitude while listening to your microphone and matches JARVIS's voice output during playback. |
+| **🎯 Stark Reticle Framing** | Cybernetic corner brackets (┌ ┐ └ ┘) and concentric orientation dashed reticle guides rendered around the 3D head viewport for an authentic Iron Man helmet HUD. |
+| **〰️ Reactive Waveform** | Real-time audio reactive oscilloscope beneath the avatar with electric cyan gradient glow and white reactive peak caps. Pulses with live microphone amplitude and matches JARVIS's voice output. |
+| **🚀 Header Quick Action Dock** | 8 fast one-click operational hubs (`🧑 AVATAR`, `🎨 THEME`, `💻 CODER`, `🚀 WEB`, `📡 NET`, `👁 SNIP`, `🌐 CHROME`, `🎙 MIC`). |
+| **🎨 9 High-Tech Theme Presets** | Live zero-restart HSL color presets (Stark Arc Cyan, Mark III Crimson, Matrix Green, Synthwave Violet, Quantum Purple, Cyber Gold, Ice Blue, Titanium, War Machine). |
 | **📊 Hardware Telemetry Gauges** | Live circular telemetry meters tracking CPU load, core temperatures, GPU memory, RAM allocation, and network status in real time. |
 | **📜 Live System Activity Log** | Transparent event stream detailing every tool call, motor execution, and latency in milliseconds. |
 | **🎛️ Split Dual Drawers** | Fast drawer tabs: `⚙ SETUP` (remote access, auto-start, audio devices) and `🎛 CONTROLS` (wake word, HUD themes, fullscreen, sleep timers). |
+
 
 ---
 
@@ -431,9 +435,11 @@ Speak naturally to JARVIS in English or your native language. The engine parses 
 
 ## 🆕 What's New in Mark LV
 
+- 🖥️ **Futuristic Stark Tech UI & Header Quick Dock Upgrade:** Upgraded `ui.py` with 9 instant HSL color presets (adding Quantum Purple, Cyber Gold, and Ice Blue), cybernetic corner reticle framing (┌ ┐ └ ┘) around the 3D holographic avatar viewport, white peak crests on the reactive audio oscilloscope, live Network TX/RX telemetry indicators, and expanded the Header Quick Action Dock with one-click **`🚀 WEB`** (Autonomous Web Studio launcher) and **`📡 NET`** (instant ping & IP diagnostic probe).
 - 🚀 **Autonomous Web Studio & Site Forge (`web_builder`):** All-in-one web development and preview engine. Instantly scaffolds complete responsive websites (portfolios, high-converting SaaS landing pages, NOC/SysAdmin telemetry dashboards, or AI-synthesized custom sites) with rich CSS glassmorphism, Google Fonts, and vanilla JavaScript. Features an instant background local dev server (`http://localhost:3000+`) that auto-opens in Google Chrome, modular UI component synthesis (`pricing_card`, `navbar`, `stat_card`), and a comprehensive SEO, mobile viewport, and accessibility auditor.
 - 🌐 **Network Engineering & SysAdmin Diagnostic Hub (`network_tools`):** Zero-dependency native network diagnostics engine tailored for L1/L2/L3 Network Engineers and System Administrators. Provides instant sub-second `ping`, TCP `port_check`, comprehensive CIDR `subnet_calc` (usable range, broadcast, host counts, wildcard mask, binary octets), `my_ip` (local interfaces, default gateway, public IP), `dns_lookup`, `flush_dns`, `traceroute`, `arp_table`, and `wifi_audit`.
 - 📝 **Voice Knowledge Base & Daily Work Journaling Engine (`notes_manager`):** Obsidian-compatible markdown note-taking and journaling system stored in `memory/notes/`. Offers 1-shot voice logging (`daily_log` to `YYYY-MM-DD.md`), structured notes with YAML frontmatter & tags (`add_note`, `append_note`), full-text content and tag search (`search_notes`), note retrieval (`get_note`), and categorized note indexing.
+
 
 - 🌐 **Expanded Native Chrome Interactions Suite:** Added 20+ native Chrome controls — history navigation (`chrome_back`, `chrome_forward`, `chrome_stop`, `chrome_home`), clean URL copy (strips tracking/analytics tags), 1-click Markdown link copy (`[Title](URL)`), tab bookmarking (`chrome_bookmark_page`, `chrome_bookmark_all_tabs`), tab muting & pinning, instant scroll to top/bottom (`Home`/`End`), direct navigation to internal hubs (`chrome://extensions`, `chrome://settings`, `chrome://password-manager`, `chrome://flags`, `chrome://read-later`), and direct Chrome DevTools Protocol (CDP) JSON querying.
 
